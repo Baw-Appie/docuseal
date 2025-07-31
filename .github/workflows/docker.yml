@@ -20,8 +20,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ inputs.os }}
-    timeout-minutes: 20
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
@@ -64,7 +63,7 @@ jobs:
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
         tags: |
           ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:${{ inputs.version }}
           ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:latest
