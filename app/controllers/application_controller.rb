@@ -8,6 +8,9 @@ class ApplicationController < ActionController::Base
 
   check_authorization unless: :devise_controller?
 
+  # 쿠키에서 SameSite=Lax 옵션 삭제
+  before_action :set_cookie_options
+
   around_action :with_locale
   before_action :sign_in_for_demo, if: -> { Docuseal.demo? }
   before_action :maybe_redirect_to_setup, unless: :signed_in?
@@ -64,6 +67,16 @@ class ApplicationController < ActionController::Base
   end
 
   private
+
+  # 모든 쿠키에서 SameSite=Lax 옵션 삭제
+  def set_cookie_options
+    cookies.each do |name, options|
+      next unless options.is_a?(Hash)
+
+      options[:same_site] = :none
+      options[:secure] = true if Rails.env.production? || request.ssl?
+    end
+  end
 
   def with_locale(&)
     return yield unless current_account
