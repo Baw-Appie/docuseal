@@ -5,6 +5,7 @@ module Api
     include ActiveStorage::Streaming
 
     skip_before_action :authenticate_user!
+    skip_before_action :verify_authenticity_token
     skip_authorization_check
 
     before_action :set_cors_headers

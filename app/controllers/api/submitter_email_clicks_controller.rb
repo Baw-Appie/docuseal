@@ -3,6 +3,7 @@
 module Api
   class SubmitterEmailClicksController < ApiBaseController
     skip_before_action :authenticate_user!
+    skip_before_action :verify_authenticity_token
     skip_authorization_check
 
     def create

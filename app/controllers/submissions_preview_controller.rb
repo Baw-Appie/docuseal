@@ -3,6 +3,7 @@
 class SubmissionsPreviewController < ApplicationController
   around_action :with_browser_locale
   skip_before_action :authenticate_user!
+  skip_before_action :verify_authenticity_token
   skip_authorization_check
 
   prepend_before_action :maybe_redirect_com, only: %i[show completed]

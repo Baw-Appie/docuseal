@@ -5,6 +5,7 @@ class SubmitFormController < ApplicationController
 
   around_action :with_browser_locale, only: %i[show completed success]
   skip_before_action :authenticate_user!
+  skip_before_action :verify_authenticity_token
   skip_authorization_check
 
   before_action :load_submitter, only: %i[show update completed]
