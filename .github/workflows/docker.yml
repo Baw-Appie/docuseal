@@ -70,4 +70,3 @@ jobs:
         tags: |
           ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:${{ inputs.version }}
           ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:latest
-          ${{ steps.meta.outputs.tags }}
