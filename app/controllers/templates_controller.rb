@@ -69,6 +69,8 @@ class TemplatesController < ApplicationController
       @template.account = current_account
     end
 
+    Templates.maybe_assign_access(@template)
+
     if @template.save
       Templates::CloneAttachments.call(template: @template, original_template: @base_template) if @base_template
 
@@ -78,7 +80,7 @@ class TemplatesController < ApplicationController
 
       maybe_redirect_to_template(@template)
     else
-      render turbo_stream: turbo_stream.replace(:modal, template: 'templates/new'), status: :unprocessable_entity
+      render turbo_stream: turbo_stream.replace(:modal, template: 'templates/new'), status: :unprocessable_content
     end
   end
 
@@ -122,9 +124,10 @@ class TemplatesController < ApplicationController
                   :required, :readonly, :default_value,
                   :title, :description, :prefillable,
                   { preferences: {},
+                    default_value: [],
                     conditions: [%i[field_uuid value action operation]],
                     options: [%i[value uuid]],
-                    validation: %i[message pattern],
+                    validation: %i[message pattern min max step],
                     areas: [%i[x y w h cell_w attachment_uuid option_uuid page]] }]] }
     )
   end

@@ -24,7 +24,12 @@ en: &en
   thanks: Thanks
   private: Private
   select: Select
+  enabled: Enabled
+  disabled: Disabled
+  party: Party
+  click_here_to_send_a_reset_password_email_html: '<label class="link" for="resend_password_button">Click here</label> to send a reset password email.'
   edit_order: Edit Order
+  expirable_file_download_links: Expirable file download links
   invite_form_fields: Invite form fields
   default_parties: Default parties
   authenticate_embedded_form_preview_with_token: Authenticate embedded form preview with token
@@ -35,13 +40,14 @@ en: &en
   bcc_recipients: BCC recipients
   resend_pending: Re-send pending
   always_enforce_signing_order: Always enforce the signing order
+  create_templates_with_private_access_by_default: Create templates with private access by default
   ensure_unique_recipients: Ensure unique recipients
   edit_per_party: Edit per party
   reply_to: Reply to
   pending_by_me: Pending by me
   partially_completed: Partially completed
   require_phone_2fa_to_open: Require phone 2FA to open
-  the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_html: The sender has requested a two factor authentication via one time password sent to your <b>%{phone}</b> phone number.
+  the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_html: The sender has requested two-factor authentication via a one-time password sent to your <b>%{phone}</b> phone number.
   send_verification_code: Send verification code
   code_has_been_resent: Code has been re-sent
   invalid_code: Invalid code
@@ -766,7 +772,7 @@ en: &en
   at_least_one_field_must_be_displayed_in_the_form: At least one field must be displayed in the form.
   this_template_has_multiple_parties_which_prevents_the_use_of_a_sharing_link: This template has multiple parties, which prevents the use of a shared link as it's unclear which party is responsible for specific fields. To resolve this, define the default party details.
   events_log: Events Log
-  successed: Successed
+  succeeded: Succeeded
   failed: Failed
   there_are_no_events: There are no events
   resend: Resend
@@ -793,6 +799,33 @@ en: &en
   template_name_has_been_completed_by_submitters_html: '"<strong>{template.name}</strong>" has been completed by <strong>{submission.submitters}</strong>'
   please_check_the_copy_of_your_template_name_in_the_email_attachments_html: 'Please check the copy of your "<strong>{template.name}</strong>" in the email attachments.'
   you_have_been_invited_to_sign_the_template_name_html: 'You have been invited to sign the "<strong>{template.name}</strong>".'
+  reveal_api_key: Reveal API Key
+  enter_your_password_to_reveal_the_api_key: Enter your password to reveal the API key
+  wrong_password: Wrong password.
+  current_password: Current password
+  dont_remember_your_current_password_click_here_to_reset_it_html: 'Don''t remember your current password? <label class="link" for="resend_password_button">Click here</label> to reset it.'
+  an_email_with_password_reset_instructions_has_been_sent: An email with password reset instructions has been sent.
+  api_key_access_code: API key access code
+  use_otp_code_to_access_the_api_key_html: Use <b>%{code}</b> code to access the API key.
+  please_reply_to_this_email_if_you_dont_recognize_this_request: Please reply to this email if you don't recognize this request.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Your user account has been archived. Contact your administrator to restore access to your account.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Your email could not be reached. This may happen if there was a typo in your address or if your mailbox is not available. Please contact support@docuseal.com to log in.
+  efficient_search_with_search_index: Efficient search with search index
+  reindex: Reindex
+  build_search_index: Build Search Index
+  require_two_factor_authentication_2fa_with_an_authenticator_app_e_g_google_authenticator_authy_all_users_signing_documents_must_pass_the_second_factor_verification_using_a_secure_code_in_addition_to_their_password: Require two-factor authentication (2FA) with an authenticator app (e.g., Google Authenticator, Authy). All users signing documents must pass the second factor verification using a secure code in addition to their password.
+  add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: "Add a unique Signature ID and timestamp to each signature for audit and traceability purposes along with the timestamp. Part of DocuSeal's 21 CFR Part 11 compliance settings."
+  require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: "Require signers to provide a reason for signing before completing their signature (e.g., approvals, certifications). Part of DocuSeal's 21 CFR Part 11 compliance settings."
+  allow_signers_to_create_signatures_by_typing_their_name_instead_of_drawing_or_uploading_one: Allow signers to create signatures by typing their name instead of drawing or uploading one.
+  allow_signers_to_resubmit_forms_after_completion_useful_when_corrections_or_multiple_submissions_are_needed: Allow signers to resubmit forms after completion, useful when corrections or multiple submissions are needed.
+  allow_recipients_to_decline_signing_a_document_the_decline_reason_notification_will_be_sent_to_the_signature_requester: Allow recipients to decline signing a document. The decline reason notification will be sent to the signature requester.
+  save_a_users_signature_and_automatically_pre_fill_it_in_future_signing_sessions: "Save a user's signature and automatically pre-fill it in future signing sessions."
+  make_document_download_links_expire_after_40_minutes_to_prevent_long_term_access_and_enhance_security: Make document download links expire after 40 minutes to prevent long-term access and enhance security.
+  require_authentication_with_user_login_or_api_key_to_access_the_document_download_links: Require authentication with user login or API key to access the document download links.
+  combine_signed_documents_and_the_audit_log_into_a_single_pdf_file_for_easier_recordkeeping_and_compliance: Combine signed documents and the Audit Log into a single PDF file for easier recordkeeping and compliance.
+  require_a_jwt_authorization_to_preview_embedded_forms_ensuring_only_authorized_users_can_view_them: Require a JWT authorization to preview embedded forms, ensuring only authorized users can view them.
+  make_all_newly_created_templates_private_to_their_creator_by_default: Make all newly created templates private to their creator by default.
+  make_the_recipients_signing_order_always_enforced_so_that_the_second_signer_can_start_signing_their_part_only_after_the_first_signer_has_completed_signing: Make the recipients signing order always enforced, so that the second signer can start signing their part only after the first signer has completed signing.
   submission_sources:
     api: API
     bulk: Bulk Send
@@ -899,6 +932,11 @@ en: &en
       range_without_total: "%{from}-%{to} events"
 
 es: &es
+  enabled: Habilitado
+  disabled: Deshabilitado
+  expirable_file_download_links: Enlaces de descarga de archivos con vencimiento
+  create_templates_with_private_access_by_default: Crear plantillas con acceso privado por defecto
+  party: Parte
   edit_order: Edita Pedido
   select: Seleccionar
   invite_form_fields: Invitar campos del formulario
@@ -1645,7 +1683,7 @@ es: &es
   at_least_one_field_must_be_displayed_in_the_form: Al menos un campo debe mostrarse en el formulario.
   this_template_has_multiple_parties_which_prevents_the_use_of_a_sharing_link: Esta plantilla tiene varias partes, lo que impide el uso de un enlace compartido porque no está claro qué parte es responsable de campos específicos. Para resolverlo, define los detalles predeterminados de la parte.
   events_log: Registro de eventos
-  successed: Exitoso
+  succeeded: Exitoso
   failed: Fallido
   there_are_no_events: No hay eventos
   resend: Reenviar
@@ -1672,6 +1710,33 @@ es: &es
   template_name_has_been_completed_by_submitters_html: '"<strong>{template.name}</strong>" ha sido completado por <strong>{submission.submitters}</strong>'
   please_check_the_copy_of_your_template_name_in_the_email_attachments_html: 'Por favor, revisa la copia de tu "<strong>{template.name}</strong>" en los archivos adjuntos del correo electrónico.'
   you_have_been_invited_to_sign_the_template_name_html: 'Has sido invitado a firmar el "<strong>{template.name}</strong>".'
+  reveal_api_key: Revelar clave API
+  enter_your_password_to_reveal_the_api_key: Introduce tu contraseña para revelar la clave API
+  wrong_password: Contraseña incorrecta.
+  current_password: Contraseña actual
+  dont_remember_your_current_password_click_here_to_reset_it_html: '¿No recuerdas tu contraseña actual? <label class="link" for="resend_password_button">Haz clic aquí</label> para restablecerla.'
+  an_email_with_password_reset_instructions_has_been_sent: Se enviará un correo electrónico con las instrucciones para restablecer tu contraseña en unos minutos.
+  api_key_access_code: Código de acceso de la clave API
+  use_otp_code_to_access_the_api_key_html: Usa el código <b>%{code}</b> para acceder a la clave API.
+  please_reply_to_this_email_if_you_dont_recognize_this_request: Responde a este correo si no reconoces esta solicitud.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Tu cuenta de usuario ha sido archivada. Contacta a tu administrador para restaurar el acceso a tu cuenta.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: No se pudo acceder a tu correo electrónico. Esto puede ocurrir si hubo un error tipográfico en tu dirección o si tu buzón no está disponible. Por favor, contacta a support@docuseal.com para iniciar sesión.
+  efficient_search_with_search_index: Búsqueda eficiente con índice de búsqueda
+  reindex: Reindexar
+  build_search_index: Construir índice de búsqueda
+  require_two_factor_authentication_2fa_with_an_authenticator_app_e_g_google_authenticator_authy_all_users_signing_documents_must_pass_the_second_factor_verification_using_a_secure_code_in_addition_to_their_password: Requerir autenticación de dos factores (2FA) con una aplicación de autenticación (p. ej., Google Authenticator, Authy). Todos los usuarios que firman documentos deben pasar la verificación del segundo factor usando un código seguro además de su contraseña.
+  add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: Agregar un ID de firma único y una marca de tiempo a cada firma para fines de auditoría y trazabilidad junto con la marca de tiempo. Parte de la configuración de cumplimiento 21 CFR Parte 11 de DocuSeal.
+  require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: Requerir que los firmantes proporcionen un motivo para firmar antes de completar su firma (p. ej., aprobaciones, certificaciones). Parte de la configuración de cumplimiento 21 CFR Parte 11 de DocuSeal.
+  allow_signers_to_create_signatures_by_typing_their_name_instead_of_drawing_or_uploading_one: Permitir que los firmantes creen firmas escribiendo su nombre en lugar de dibujar o subir una.
+  allow_signers_to_resubmit_forms_after_completion_useful_when_corrections_or_multiple_submissions_are_needed: Permitir que los firmantes vuelvan a enviar formularios después de completarlos, útil cuando se necesitan correcciones o múltiples envíos.
+  allow_recipients_to_decline_signing_a_document_the_decline_reason_notification_will_be_sent_to_the_signature_requester: Permitir que los destinatarios rechacen firmar un documento. La notificación del motivo del rechazo se enviará al solicitante de la firma.
+  save_a_users_signature_and_automatically_pre_fill_it_in_future_signing_sessions: Guardar la firma de un usuario y rellenarla automáticamente en futuras sesiones de firma.
+  make_document_download_links_expire_after_40_minutes_to_prevent_long_term_access_and_enhance_security: Hacer que los enlaces de descarga de documentos caduquen después de 40 minutos para evitar el acceso a largo plazo y mejorar la seguridad.
+  require_authentication_with_user_login_or_api_key_to_access_the_document_download_links: Requerir autenticación con inicio de sesión de usuario o clave API para acceder a los enlaces de descarga de documentos.
+  combine_signed_documents_and_the_audit_log_into_a_single_pdf_file_for_easier_recordkeeping_and_compliance: Combinar documentos firmados y el registro de auditoría en un solo archivo PDF para una gestión y cumplimiento más fáciles.
+  require_a_jwt_authorization_to_preview_embedded_forms_ensuring_only_authorized_users_can_view_them: Requerir autorización JWT para previsualizar formularios incrustados, garantizando que solo los usuarios autorizados puedan verlos.
+  make_all_newly_created_templates_private_to_their_creator_by_default: Hacer que todas las plantillas creadas sean privadas para su creador por defecto.
+  make_the_recipients_signing_order_always_enforced_so_that_the_second_signer_can_start_signing_their_part_only_after_the_first_signer_has_completed_signing: Hacer que el orden de firma de los destinatarios se aplique siempre, de modo que el segundo firmante pueda comenzar a firmar solo después de que el primero haya completado la firma.
   submission_sources:
     api: API
     bulk: Envío masivo
@@ -1778,6 +1843,12 @@ es: &es
       range_without_total: "%{from}-%{to} eventos"
 
 it: &it
+  click_here_to_send_a_reset_password_email_html: '<label class="link" for="resend_password_button">Clicca qui</label> per inviare una email per reimpostare la password.'
+  enabled: Abilitato
+  disabled: Disabilitato
+  expirable_file_download_links: Link di download di file con scadenza
+  create_templates_with_private_access_by_default: Crea modelli con accesso privato per impostazione predefinita
+  party: Parte
   edit_order: Modifica Ordine
   select: Seleziona
   invite_form_fields: Invita campi modulo
@@ -2523,7 +2594,7 @@ it: &it
   at_least_one_field_must_be_displayed_in_the_form: Almeno un campo deve essere visualizzato nel modulo.
   this_template_has_multiple_parties_which_prevents_the_use_of_a_sharing_link: Questo modello ha più parti, il che impedisce l’uso di un link di condivisione perché non è chiaro quale parte sia responsabile di campi specifici. Per risolvere, definisci i dettagli predefiniti della parte.
   events_log: Registro eventi
-  successed: Riuscito
+  succeeded: Riuscito
   failed: Fallito
   there_are_no_events: Nessun evento
   resend: Invia di nuovo
@@ -2551,6 +2622,33 @@ it: &it
   template_name_has_been_completed_by_submitters_html: '"<strong>{template.name}</strong>" è stato completato da <strong>{submission.submitters}</strong>'
   please_check_the_copy_of_your_template_name_in_the_email_attachments_html: 'Per favore, controlla la copia del tuo "<strong>{template.name}</strong>" negli allegati dell''email.'
   you_have_been_invited_to_sign_the_template_name_html: 'Sei stato invitato a firmare il "<strong>{template.name}</strong>".'
+  reveal_api_key: Mostra chiave API
+  enter_your_password_to_reveal_the_api_key: Inserisci la tua password per mostrare la chiave API
+  wrong_password: Password errata.
+  current_password: Password attuale
+  dont_remember_your_current_password_click_here_to_reset_it_html: 'Non ricordi la tua password attuale? <label class="link" for="resend_password_button">Clicca qui</label> per reimpostarla.'
+  an_email_with_password_reset_instructions_has_been_sent: Un'email con le istruzioni per reimpostare la password ti è stata inviata e arriverà entro pochi minuti.
+  api_key_access_code: Codice di accesso della chiave API
+  use_otp_code_to_access_the_api_key_html: Usa il codice <b>%{code}</b> per accedere alla chiave API.
+  please_reply_to_this_email_if_you_dont_recognize_this_request: Rispondi a questa email se non riconosci questa richiesta.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Il tuo account utente è stato archiviato. Contatta il tuo amministratore per ripristinare l'accesso al tuo account.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Non è stato possibile raggiungere la tua email. Questo può accadere se c'è stato un errore di digitazione nell'indirizzo o se la tua casella di posta non è disponibile. Contatta support@docuseal.com per accedere.
+  efficient_search_with_search_index: Ricerca efficiente con indice di ricerca
+  reindex: Reindicizza
+  build_search_index: Crea indice di ricerca
+  require_two_factor_authentication_2fa_with_an_authenticator_app_e_g_google_authenticator_authy_all_users_signing_documents_must_pass_the_second_factor_verification_using_a_secure_code_in_addition_to_their_password: "Richiedere l'autenticazione a due fattori (2FA) con un'app di autenticazione (es. Google Authenticator, Authy). Tutti gli utenti che firmano documenti devono superare la verifica del secondo fattore utilizzando un codice sicuro oltre alla password."
+  add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: Aggiungere un ID firma univoco e una marca temporale a ogni firma per scopi di audit e tracciabilità insieme alla marca temporale. Parte delle impostazioni di conformità 21 CFR Parte 11 di DocuSeal.
+  require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: Richiedere ai firmatari di fornire una motivazione prima di completare la firma (es. approvazioni, certificazioni). Parte delle impostazioni di conformità 21 CFR Parte 11 di DocuSeal.
+  allow_signers_to_create_signatures_by_typing_their_name_instead_of_drawing_or_uploading_one: Consentire ai firmatari di creare firme digitando il proprio nome invece di disegnarle o caricarle.
+  allow_signers_to_resubmit_forms_after_completion_useful_when_corrections_or_multiple_submissions_are_needed: Consentire ai firmatari di reinviare i moduli dopo il completamento, utile quando sono necessarie correzioni o più invii.
+  allow_recipients_to_decline_signing_a_document_the_decline_reason_notification_will_be_sent_to_the_signature_requester: Consentire ai destinatari di rifiutare di firmare un documento. La notifica del motivo del rifiuto verrà inviata al richiedente della firma.
+  save_a_users_signature_and_automatically_pre_fill_it_in_future_signing_sessions: Salvare la firma di un utente e compilarla automaticamente nelle future sessioni di firma.
+  make_document_download_links_expire_after_40_minutes_to_prevent_long_term_access_and_enhance_security: "Fare in modo che i link di download dei documenti scadano dopo 40 minuti per prevenire l'accesso a lungo termine e migliorare la sicurezza."
+  require_authentication_with_user_login_or_api_key_to_access_the_document_download_links: "Richiedere l'autenticazione con login utente o chiave API per accedere ai link di download dei documenti."
+  combine_signed_documents_and_the_audit_log_into_a_single_pdf_file_for_easier_recordkeeping_and_compliance: Combinare documenti firmati e registro di audit in un unico file PDF per una gestione e conformità più semplici.
+  require_a_jwt_authorization_to_preview_embedded_forms_ensuring_only_authorized_users_can_view_them: "Richiedere un'autorizzazione JWT per visualizzare in anteprima i moduli incorporati, garantendo che solo gli utenti autorizzati possano vederli."
+  make_all_newly_created_templates_private_to_their_creator_by_default: Rendere tutte le nuove template private per il creatore per impostazione predefinita.
+  make_the_recipients_signing_order_always_enforced_so_that_the_second_signer_can_start_signing_their_part_only_after_the_first_signer_has_completed_signing: "Rendere sempre obbligatorio l'ordine di firma dei destinatari, in modo che il secondo firmatario possa iniziare solo dopo che il primo ha completato la firma."
   submission_sources:
     api: API
     bulk: Invio massivo
@@ -2657,6 +2755,12 @@ it: &it
       range_without_total: "%{from}-%{to} eventi"
 
 fr: &fr
+  click_here_to_send_a_reset_password_email_html: '<label class="link" for="resend_password_button">Cliquez ici</label> pour envoyer un e-mail de réinitialisation du mot de passe.'
+  enabled: Activé
+  disabled: Désactivé
+  expirable_file_download_links: Liens de téléchargement de fichiers expirables
+  create_templates_with_private_access_by_default: Créer des modèles avec un accès privé par défaut
+  party: Partie
   edit_order: Modifier la commande
   select: Sélectionner
   invite_form_fields: Inviter des champs de formulaire
@@ -3405,7 +3509,7 @@ fr: &fr
   at_least_one_field_must_be_displayed_in_the_form: Au moins un champ doit être affiché dans le formulaire.
   this_template_has_multiple_parties_which_prevents_the_use_of_a_sharing_link: Ce modèle contient plusieurs parties, ce qui empêche l’utilisation d’un lien de partage car il n’est pas clair quelle partie est responsable de certains champs. Pour résoudre cela, définissez les détails de la partie par défaut.
   events_log: Journal des événements
-  successed: Réussi
+  succeeded: Réussi
   failed: Échoué
   there_are_no_events: Aucun événement
   resend: Renvoyer
@@ -3433,6 +3537,33 @@ fr: &fr
   template_name_has_been_completed_by_submitters_html: '"<strong>{template.name}</strong>" a été complété par <strong>{submission.submitters}</strong>'
   please_check_the_copy_of_your_template_name_in_the_email_attachments_html: 'Veuillez vérifier la copie de votre "<strong>{template.name}</strong>" dans les pièces jointes de l’e-mail.'
   you_have_been_invited_to_sign_the_template_name_html: 'Vous avez été invité à signer le "<strong>{template.name}</strong>".'
+  reveal_api_key: Révéler la clé API
+  enter_your_password_to_reveal_the_api_key: Entrez votre mot de passe pour révéler la clé API
+  wrong_password: Mot de passe incorrect.
+  current_password: Mot de passe actuel
+  dont_remember_your_current_password_click_here_to_reset_it_html: 'Vous ne vous souvenez plus de votre mot de passe actuel ? <label class="link" for="resend_password_button">Cliquez ici</label> pour le réinitialiser.'
+  an_email_with_password_reset_instructions_has_been_sent: Un e-mail contenant les instructions pour réinitialiser votre mot de passe vous sera envoyé dans quelques minutes.
+  api_key_access_code: Code d'accès de la clé API
+  use_otp_code_to_access_the_api_key_html: Utilisez le code <b>%{code}</b> pour accéder à la clé API.
+  please_reply_to_this_email_if_you_dont_recognize_this_request: Veuillez répondre à cet e-mail si vous ne reconnaissez pas cette demande.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Votre compte utilisateur a été archivé. Contactez votre administrateur pour rétablir l'accès à votre compte.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Votre e-mail n'a pas pu être atteint. Cela peut arriver s'il y a eu une faute de frappe dans votre adresse ou si votre boîte aux lettres n'est pas disponible. Veuillez contacter support@docuseal.com pour vous connecter.
+  efficient_search_with_search_index: Recherche efficace avec index de recherche
+  reindex: Réindexer
+  build_search_index: Construire un index de recherche
+  require_two_factor_authentication_2fa_with_an_authenticator_app_e_g_google_authenticator_authy_all_users_signing_documents_must_pass_the_second_factor_verification_using_a_secure_code_in_addition_to_their_password: "Exiger une authentification à deux facteurs (2FA) avec une application d'authentification (ex. Google Authenticator, Authy). Tous les utilisateurs signant des documents doivent passer la vérification du second facteur en utilisant un code sécurisé en plus de leur mot de passe."
+  add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: "Ajouter un identifiant de signature unique et un horodatage à chaque signature à des fins d'audit et de traçabilité avec l'horodatage. Fait partie des paramètres de conformité 21 CFR Partie 11 de DocuSeal."
+  require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: "Exiger des signataires qu'ils fournissent une raison avant de compléter leur signature (ex. approbations, certifications). Fait partie des paramètres de conformité 21 CFR Partie 11 de DocuSeal."
+  allow_signers_to_create_signatures_by_typing_their_name_instead_of_drawing_or_uploading_one: Permettre aux signataires de créer des signatures en tapant leur nom au lieu de les dessiner ou de les télécharger.
+  allow_signers_to_resubmit_forms_after_completion_useful_when_corrections_or_multiple_submissions_are_needed: Permettre aux signataires de soumettre à nouveau des formulaires après achèvement, utile lorsque des corrections ou plusieurs envois sont nécessaires.
+  allow_recipients_to_decline_signing_a_document_the_decline_reason_notification_will_be_sent_to_the_signature_requester: Permettre aux destinataires de refuser de signer un document. La notification de la raison du refus sera envoyée au demandeur de la signature.
+  save_a_users_signature_and_automatically_pre_fill_it_in_future_signing_sessions: "Enregistrer la signature d'un utilisateur et la pré-remplir automatiquement dans les futures sessions de signature."
+  make_document_download_links_expire_after_40_minutes_to_prevent_long_term_access_and_enhance_security: Faire expirer les liens de téléchargement de documents après 40 minutes pour éviter un accès à long terme et améliorer la sécurité.
+  require_authentication_with_user_login_or_api_key_to_access_the_document_download_links: Exiger une authentification avec identifiant utilisateur ou clé API pour accéder aux liens de téléchargement de documents.
+  combine_signed_documents_and_the_audit_log_into_a_single_pdf_file_for_easier_recordkeeping_and_compliance: "Combiner les documents signés et le journal d'audit dans un seul fichier PDF pour une gestion et une conformité plus faciles."
+  require_a_jwt_authorization_to_preview_embedded_forms_ensuring_only_authorized_users_can_view_them: Exiger une autorisation JWT pour prévisualiser les formulaires intégrés, garantissant que seuls les utilisateurs autorisés puissent les voir.
+  make_all_newly_created_templates_private_to_their_creator_by_default: Rendre toutes les nouvelles modèles privées à leur créateur par défaut.
+  make_the_recipients_signing_order_always_enforced_so_that_the_second_signer_can_start_signing_their_part_only_after_the_first_signer_has_completed_signing: "Rendre l'ordre de signature des destinataires toujours obligatoire, de sorte que le deuxième signataire ne puisse commencer qu'après que le premier a terminé."
   submission_sources:
     api: API
     bulk: Envoi en masse
@@ -3539,6 +3670,12 @@ fr: &fr
       range_without_total: "%{from} à %{to} événements"
 
 pt: &pt
+  click_here_to_send_a_reset_password_email_html: '<label class="link" for="resend_password_button">Clique aqui</label> para enviar um e-mail de redefinição de senha.'
+  enabled: Ativado
+  disabled: Desativado
+  expirable_file_download_links: Links de download de arquivos com expiração
+  create_templates_with_private_access_by_default: Criar modelos com acesso privado por padrão
+  party: Parte
   edit_order: Edita Pedido
   select: Selecionar
   invite_form_fields: Convidar campos do formulário
@@ -4286,7 +4423,7 @@ pt: &pt
   at_least_one_field_must_be_displayed_in_the_form: Pelo menos um campo deve ser exibido no formulário.
   this_template_has_multiple_parties_which_prevents_the_use_of_a_sharing_link: Este modelo tem várias partes, o que impede o uso de um link de compartilhamento, pois não está claro qual parte é responsável por campos específicos. Para resolver isso, defina os detalhes padrão da parte.
   events_log: Registro de eventos
-  successed: Sucesso
+  succeeded: Sucesso
   failed: Falhou
   there_are_no_events: Nenhum evento
   resend: Reenviar
@@ -4313,6 +4450,33 @@ pt: &pt
   template_name_has_been_completed_by_submitters_html: '"<strong>{template.name}</strong>" foi concluído por <strong>{submission.submitters}</strong>'
   please_check_the_copy_of_your_template_name_in_the_email_attachments_html: 'Por favor, verifique a cópia do seu "<strong>{template.name}</strong>" nos anexos do e-mail.'
   you_have_been_invited_to_sign_the_template_name_html: 'Você foi convidado a assinar o "<strong>{template.name}</strong>".'
+  reveal_api_key: Revelar chave API
+  enter_your_password_to_reveal_the_api_key: Insira sua senha para revelar a chave API
+  wrong_password: Senha incorreta.
+  current_password: Senha atual
+  dont_remember_your_current_password_click_here_to_reset_it_html: 'Não se lembra da sua senha atual? <label class="link" for="resend_password_button">Clique aqui</label> para redefini-la.'
+  an_email_with_password_reset_instructions_has_been_sent: Um e-mail com instruções para redefinir sua senha será enviado em alguns minutos.
+  api_key_access_code: Código de acesso da chave API
+  use_otp_code_to_access_the_api_key_html: Use o código <b>%{code}</b> para acessar a chave API.
+  please_reply_to_this_email_if_you_dont_recognize_this_request: Responda a este e-mail se você não reconhecer esta solicitação.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Sua conta de usuário foi arquivada. Entre em contato com o administrador para restaurar o acesso à sua conta.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Seu e-mail não pôde ser acessado. Isso pode acontecer se houve um erro de digitação no endereço ou se sua caixa de correio não estiver disponível. Entre em contato com support@docuseal.com para fazer login.
+  efficient_search_with_search_index: Pesquisa eficiente com índice de busca
+  reindex: Reindexar
+  build_search_index: Construir índice de busca
+  require_two_factor_authentication_2fa_with_an_authenticator_app_e_g_google_authenticator_authy_all_users_signing_documents_must_pass_the_second_factor_verification_using_a_secure_code_in_addition_to_their_password: "Exigir autenticação de dois fatores (2FA) com um aplicativo autenticador (ex.: Google Authenticator, Authy). Todos os usuários que assinam documentos devem passar pela verificação do segundo fator usando um código seguro além da senha."
+  add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: Adicionar um ID de assinatura exclusivo e um carimbo de data/hora a cada assinatura para fins de auditoria e rastreabilidade junto com o carimbo de data/hora. Parte das configurações de conformidade 21 CFR Parte 11 do DocuSeal.
+  require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: "Exigir que os signatários forneçam uma razão antes de completar a assinatura (ex.: aprovações, certificações). Parte das configurações de conformidade 21 CFR Parte 11 do DocuSeal."
+  allow_signers_to_create_signatures_by_typing_their_name_instead_of_drawing_or_uploading_one: Permitir que os signatários criem assinaturas digitando seu nome em vez de desenhá-las ou carregá-las.
+  allow_signers_to_resubmit_forms_after_completion_useful_when_corrections_or_multiple_submissions_are_needed: Permitir que os signatários reenviem formulários após o término, útil quando são necessárias correções ou múltiplos envios.
+  allow_recipients_to_decline_signing_a_document_the_decline_reason_notification_will_be_sent_to_the_signature_requester: Permitir que os destinatários recusem assinar um documento. A notificação do motivo da recusa será enviada ao solicitante da assinatura.
+  save_a_users_signature_and_automatically_pre_fill_it_in_future_signing_sessions: Salvar a assinatura de um usuário e preenchê-la automaticamente em futuras sessões de assinatura.
+  make_document_download_links_expire_after_40_minutes_to_prevent_long_term_access_and_enhance_security: Fazer os links de download de documentos expirarem após 40 minutos para evitar o acesso prolongado e aumentar a segurança.
+  require_authentication_with_user_login_or_api_key_to_access_the_document_download_links: Exigir autenticação com login do usuário ou chave API para acessar os links de download de documentos.
+  combine_signed_documents_and_the_audit_log_into_a_single_pdf_file_for_easier_recordkeeping_and_compliance: Combinar documentos assinados e o registro de auditoria em um único arquivo PDF para facilitar o arquivamento e a conformidade.
+  require_a_jwt_authorization_to_preview_embedded_forms_ensuring_only_authorized_users_can_view_them: Exigir autorização JWT para visualizar formulários incorporados, garantindo que apenas usuários autorizados possam vê-los.
+  make_all_newly_created_templates_private_to_their_creator_by_default: Tornar todos os modelos recém-criados privados para seu criador por padrão.
+  make_the_recipients_signing_order_always_enforced_so_that_the_second_signer_can_start_signing_their_part_only_after_the_first_signer_has_completed_signing: Tornar a ordem de assinatura dos destinatários sempre obrigatória, para que o segundo signatário só possa assinar após o primeiro concluir.
   submission_sources:
     api: API
     bulk: Envio em massa
@@ -4419,6 +4583,12 @@ pt: &pt
       range_without_total: "%{from}-%{to} eventos"
 
 de: &de
+  click_here_to_send_a_reset_password_email_html: '<label class="link" for="resend_password_button">Klicken Sie hier</label>, um eine E-Mail zum Zurücksetzen des Passworts zu senden.'
+  enabled: Aktiviert
+  disabled: Deaktiviert
+  expirable_file_download_links: Ablaufbare Datei-Download-Links
+  create_templates_with_private_access_by_default: Vorlagen standardmäßig mit privatem Zugriff erstellen
+  party: Partei
   edit_order: Bestellung bearbeiten
   select: Auswählen
   invite_form_fields: Formularfelder einladen
@@ -5166,7 +5336,7 @@ de: &de
   at_least_one_field_must_be_displayed_in_the_form: Mindestens ein Feld muss im Formular angezeigt werden.
   this_template_has_multiple_parties_which_prevents_the_use_of_a_sharing_link: Diese Vorlage enthält mehrere Parteien, was die Verwendung eines Freigabelinks verhindert, da unklar ist, welche Partei für bestimmte Felder verantwortlich ist. Um dies zu beheben, definieren Sie die Standardparteidetails.
   events_log: Ereignisprotokoll
-  successed: Erfolgreich
+  succeeded: Erfolgreich
   failed: Fehlgeschlagen
   there_are_no_events: Keine Ereignisse vorhanden
   resend: Erneut senden
@@ -5193,6 +5363,31 @@ de: &de
   template_name_has_been_completed_by_submitters_html: '"<strong>{template.name}</strong>" wurde von <strong>{submission.submitters}</strong> abgeschlossen'
   please_check_the_copy_of_your_template_name_in_the_email_attachments_html: 'Bitte prüfen Sie die Kopie Ihres "<strong>{template.name}</strong>" in den E-Mail-Anhängen.'
   you_have_been_invited_to_sign_the_template_name_html: 'Du wurdest eingeladen, "<strong>{template.name}</strong>" zu unterschreiben.'
+  reveal_api_key: API-Schlüssel anzeigen
+  enter_your_password_to_reveal_the_api_key: Gib dein Passwort ein, um den API-Schlüssel anzuzeigen
+  wrong_password: Falsches Passwort.
+  current_password: Aktuelles Passwort
+  dont_remember_your_current_password_click_here_to_reset_it_html: 'Sie erinnern sich nicht an Ihr aktuelles Passwort? <label class="link" for="resend_password_button">Klicken Sie hier</label>, um es zurückzusetzen.'
+  an_email_with_password_reset_instructions_has_been_sent: Eine E-Mail mit Anweisungen zum Zurücksetzen Ihres Passworts wurde Ihnen in wenigen Minuten zugesendet.
+  api_key_access_code: API-Schlüssel-Zugangscode
+  use_otp_code_to_access_the_api_key_html: Verwenden Sie den Code <b>%{code}</b>, um auf den API-Schlüssel zuzugreifen.
+  please_reply_to_this_email_if_you_dont_recognize_this_request: Bitte antworten Sie auf diese E-Mail, wenn Sie diese Anfrage nicht erkennen.
+  efficient_search_with_search_index: Effiziente Suche mit Suchindex
+  reindex: Neu indexieren
+  build_search_index: Suchindex erstellen
+  require_two_factor_authentication_2fa_with_an_authenticator_app_e_g_google_authenticator_authy_all_users_signing_documents_must_pass_the_second_factor_verification_using_a_secure_code_in_addition_to_their_password: Zwei-Faktor-Authentifizierung (2FA) mit einer Authentifizierungs-App (z. B. Google Authenticator, Authy) erforderlich. Alle Benutzer, die Dokumente unterzeichnen, müssen die zweite Faktorprüfung mit einem sicheren Code zusätzlich zu ihrem Passwort bestehen.
+  add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: Eine eindeutige Signatur-ID und einen Zeitstempel zu jeder Signatur hinzufügen, um Prüfungs- und Nachverfolgbarkeitszwecke zusammen mit dem Zeitstempel zu erfüllen. Teil der 21 CFR Teil 11-Compliance-Einstellungen von DocuSeal.
+  require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: Unterzeichner müssen einen Grund für die Unterzeichnung angeben, bevor sie ihre Signatur abschließen (z. B. Genehmigungen, Zertifizierungen). Teil der 21 CFR Teil 11-Compliance-Einstellungen von DocuSeal.
+  allow_signers_to_create_signatures_by_typing_their_name_instead_of_drawing_or_uploading_one: Unterzeichner dürfen Signaturen erstellen, indem sie ihren Namen eingeben, anstatt eine zu zeichnen oder hochzuladen.
+  allow_signers_to_resubmit_forms_after_completion_useful_when_corrections_or_multiple_submissions_are_needed: Unterzeichner dürfen Formulare nach Abschluss erneut einreichen, was nützlich ist, wenn Korrekturen oder mehrere Einreichungen erforderlich sind.
+  allow_recipients_to_decline_signing_a_document_the_decline_reason_notification_will_be_sent_to_the_signature_requester: Empfänger dürfen die Unterzeichnung eines Dokuments ablehnen. Die Benachrichtigung über den Ablehnungsgrund wird an den Anforderer der Signatur gesendet.
+  save_a_users_signature_and_automatically_pre_fill_it_in_future_signing_sessions: Die Signatur eines Benutzers speichern und sie in zukünftigen Signatursitzungen automatisch ausfüllen.
+  make_document_download_links_expire_after_40_minutes_to_prevent_long_term_access_and_enhance_security: Download-Links für Dokumente nach 40 Minuten ablaufen lassen, um langfristigen Zugriff zu verhindern und die Sicherheit zu erhöhen.
+  require_authentication_with_user_login_or_api_key_to_access_the_document_download_links: Authentifizierung mit Benutzeranmeldung oder API-Schlüssel erforderlich, um auf die Download-Links für Dokumente zuzugreifen.
+  combine_signed_documents_and_the_audit_log_into_a_single_pdf_file_for_easier_recordkeeping_and_compliance: Unterzeichnete Dokumente und das Prüfprotokoll in einer einzigen PDF-Datei kombinieren, um die Aufbewahrung und Compliance zu erleichtern.
+  require_a_jwt_authorization_to_preview_embedded_forms_ensuring_only_authorized_users_can_view_them: JWT-Autorisierung erforderlich, um eingebettete Formulare anzuzeigen, sodass nur autorisierte Benutzer sie sehen können.
+  make_all_newly_created_templates_private_to_their_creator_by_default: Alle neu erstellten Vorlagen standardmäßig für ihren Ersteller privat machen.
+  make_the_recipients_signing_order_always_enforced_so_that_the_second_signer_can_start_signing_their_part_only_after_the_first_signer_has_completed_signing: Die Unterzeichnungsreihenfolge der Empfänger immer erzwingen, sodass der zweite Unterzeichner erst nach Abschluss der Unterschrift durch den ersten beginnen kann.
   submission_sources:
     api: API
     bulk: Massenversand
@@ -5386,6 +5581,8 @@ pl:
   email_verification: Weryfikacja e-mail
   your_verification_code_to_access_the_name: 'Twój kod weryfikacyjny do uzyskania dostępu do "%{name}":'
   please_reply_to_this_email_if_you_didnt_request_this: Odpowiedz na ten e-mail, jeśli nie prosiłeś o to.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Twoje konto użytkownika zostało zarchiwizowane. Skontaktuj się z administratorem, aby przywrócić dostęp do konta.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Nie udało się uzyskać dostępu do Twojego adresu e-mail. Może to być spowodowane literówką w adresie lub niedostępnością skrzynki. Skontaktuj się z support@docuseal.com, aby się zalogować.
 
 uk:
   require_phone_2fa_to_open: Вимагати двофакторну автентифікацію через телефон для відкриття
@@ -5475,6 +5672,8 @@ uk:
   email_verification: Підтвердження електронної пошти
   your_verification_code_to_access_the_name: 'Ваш код доступу до "%{name}":'
   please_reply_to_this_email_if_you_didnt_request_this: Відповідайте на цей лист, якщо ви цього не запитували.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Ваш обліковий запис було архівовано. Зверніться до адміністратора, щоб відновити доступ.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Не вдалося отримати доступ до вашої електронної пошти. Це може статися, якщо була допущена помилка в адресі або ваша скринька недоступна. Зверніться до support@docuseal.com, щоб увійти.
 
 cs:
   require_phone_2fa_to_open: Vyžadovat otevření pomocí telefonního 2FA
@@ -5564,6 +5763,8 @@ cs:
   email_verification: Ověření e-mailu
   your_verification_code_to_access_the_name: 'Váš ověřovací kód pro přístup k "%{name}":'
   please_reply_to_this_email_if_you_didnt_request_this: Odpovězte na tento e-mail, pokud jste o to nežádali.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Váš uživatelský účet byl archivován. Kontaktujte svého administrátora pro obnovení přístupu.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Nepodařilo se dosáhnout na váš e-mail. To se může stát, pokud je v adrese překlep nebo vaše schránka není dostupná. Kontaktujte support@docuseal.com pro přihlášení.
 
 he:
   require_phone_2fa_to_open: דרוש אימות דו-שלבי באמצעות טלפון לפתיחה
@@ -5653,6 +5854,8 @@ he:
   email_verification: 'אימות דוא"ל'
   your_verification_code_to_access_the_name: 'קוד האימות שלך לגישה ל-%{name}:'
   please_reply_to_this_email_if_you_didnt_request_this: 'השב למייל זה אם לא ביקשת זאת.'
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: החשבון שלך הועבר לארכיון. פנה למנהל המערכת כדי לשחזר את הגישה.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: לא ניתן היה לגשת לדוא"ל שלך. ייתכן שזה קרה עקב שגיאת כתיב בכתובת או אם תיבת הדואר אינה זמינה. אנא פנה ל־support@docuseal.com כדי להתחבר.
 
 nl:
   require_phone_2fa_to_open: Vereis telefoon 2FA om te openen
@@ -5742,6 +5945,8 @@ nl:
   email_verification: E-mailverificatie
   your_verification_code_to_access_the_name: 'Je verificatiecode voor toegang tot "%{name}":'
   please_reply_to_this_email_if_you_didnt_request_this: Reageer op deze e-mail als je dit niet hebt aangevraagd.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Je gebruikersaccount is gearchiveerd. Neem contact op met je beheerder om de toegang te herstellen.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Je e-mailadres kon niet worden bereikt. Dit kan gebeuren door een typefout in je adres of als je mailbox niet beschikbaar is. Neem contact op met support@docuseal.com om in te loggen.
 
 ar:
   require_phone_2fa_to_open: "تطلب فتح عبر تحقق الهاتف ذو العاملين"
@@ -5831,6 +6036,8 @@ ar:
   email_verification: 'التحقق من البريد الإلكتروني'
   your_verification_code_to_access_the_name: 'رمز التحقق الخاص بك للوصول إلى "%{name}":'
   please_reply_to_this_email_if_you_didnt_request_this: 'يرجى الرد على هذا البريد إذا لم تطلب ذلك.'
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: تم أرشفة حسابك. يرجى التواصل مع المسؤول لاستعادة الوصول إلى حسابك.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: تعذّر الوصول إلى بريدك الإلكتروني. قد يحدث هذا في حال وجود خطأ في العنوان أو إذا كانت صندوق البريد غير متاح. يرجى التواصل مع support@docuseal.com لتسجيل الدخول.
 
 ko:
   require_phone_2fa_to_open: 휴대폰 2FA를 열 때 요구함
@@ -5920,6 +6127,8 @@ ko:
   email_verification: 이메일 인증
   your_verification_code_to_access_the_name: '"%{name}"에 액세스하기 위한 인증 코드:'
   please_reply_to_this_email_if_you_didnt_request_this: 요청하지 않았다면 이 이메일에 회신하세요.
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: 사용자 계정이 보관되었습니다. 계정 접근을 복원하려면 관리자에게 문의하세요.
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: 이메일에 접근할 수 없습니다. 주소에 오타가 있거나 메일박스가 사용 불가능한 경우 발생할 수 있습니다. 로그인하려면 support@docuseal.com에 문의하세요.
 
 ja:
   require_phone_2fa_to_open: 電話による2段階認証が必要です
@@ -6009,6 +6218,8 @@ ja:
   email_verification: メール認証
   your_verification_code_to_access_the_name: '"%{name}"へのアクセスコード：'
   please_reply_to_this_email_if_you_didnt_request_this: このリクエストを行っていない場合は、このメールに返信してください。
+  your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: あなたのユーザーアカウントはアーカイブされました。アクセスを復元するには管理者に連絡してください。
+  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: メールにアクセスできませんでした。アドレスの入力ミスやメールボックスが利用できない場合に発生することがあります。ログインするには support@docuseal.com に連絡してください。
 
 en-US:
   <<: *en

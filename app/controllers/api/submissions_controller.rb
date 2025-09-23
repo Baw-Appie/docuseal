@@ -18,10 +18,12 @@ module Api
                                                  combined_document_attachment: :blob,
                                                  audit_trail_attachment: :blob))
 
+      expires_at = Accounts.link_expires_at(current_account)
+
       render json: {
         data: submissions.map do |s|
           Submissions::SerializeForApi.call(s, s.submitters, params,
-                                            with_events: false, with_documents: false, with_values: false)
+                                            with_events: false, with_documents: false, with_values: false, expires_at:)
         end,
         pagination: {
           count: submissions.size,
@@ -41,7 +43,7 @@ module Api
       end
 
       if @submission.audit_trail_attachment.blank? && submitters.all?(&:completed_at?)
-        @submission.audit_trail_attachment = Submissions::GenerateAuditTrail.call(@submission)
+        @submission.audit_trail_attachment = Submissions::EnsureAuditGenerated.call(@submission)
       end
 
       render json: Submissions::SerializeForApi.call(@submission, submitters, params)
@@ -50,12 +52,12 @@ module Api
     def create
       Params::SubmissionCreateValidator.call(params)
 
-      return render json: { error: 'Template not found' }, status: :unprocessable_entity if @template.nil?
+      return render json: { error: 'Template not found' }, status: :unprocessable_content if @template.nil?
 
       if @template.fields.blank?
         Rollbar.warning("Template does not contain fields: #{@template.id}") if defined?(Rollbar)
 
-        return render json: { error: 'Template does not contain fields' }, status: :unprocessable_entity
+        return render json: { error: 'Template does not contain fields' }, status: :unprocessable_content
       end
 
       params[:send_email] = true unless params.key?(:send_email)
@@ -82,7 +84,7 @@ module Api
            DownloadUtils::UnableToDownload => e
       Rollbar.warning(e) if defined?(Rollbar)
 
-      render json: { error: e.message }, status: :unprocessable_entity
+      render json: { error: e.message }, status: :unprocessable_content
     end
 
     def destroy
@@ -182,6 +184,7 @@ module Api
         :send_email, :send_sms, :bcc_completed, :completed_redirect_url, :reply_to, :go_to_last,
         :require_phone_2fa, :expire_at, :name,
         {
+          variables: {},
           message: %i[subject body],
           submitters: [[:send_email, :send_sms, :completed_redirect_url, :uuid, :name, :email, :role,
                         :completed, :phone, :application_key, :external_id, :reply_to, :go_to_last,
@@ -189,7 +192,7 @@ module Api
                         { metadata: {}, values: {}, roles: [], readonly_fields: [], message: %i[subject body],
                           fields: [:name, :uuid, :default_value, :value, :title, :description,
                                    :readonly, :required, :validation_pattern, :invalid_message,
-                                   { default_value: [], value: [], preferences: {} }] }]]
+                                   { default_value: [], value: [], preferences: {}, validation: {} }] }]]
         }
       ]
 

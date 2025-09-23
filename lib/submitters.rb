@@ -94,8 +94,9 @@ module Submitters
   def select_attachments_for_download(submitter)
     if AccountConfig.exists?(account_id: submitter.submission.account_id,
                              key: AccountConfig::COMBINE_PDF_RESULT_KEY,
-                             value: true) && submitter.submission.combined_document_attachment
-      return [submitter.submission.combined_document_attachment]
+                             value: true) &&
+       submitter.submission.submitters.all?(&:completed_at?)
+      return [submitter.submission.combined_document_attachment || Submissions::EnsureCombinedGenerated.call(submitter)]
     end
 
     original_documents = submitter.submission.schema_documents.preload(:blob)
@@ -177,7 +178,11 @@ module Submitters
         submitter_items.first(submitter_items.find_index { |e| e['uuid'] == submitter.uuid })
       end
 
-    before_items.all? { |item| submission.submitters.find { |e| e.uuid == item['uuid'] }&.completed_at? }
+    before_items.all? do |item|
+      submitter = submission.submitters.find { |e| e.uuid == item['uuid'] }
+
+      submitter.nil? || submitter.completed_at?
+    end
   end
 
   def build_document_filename(submitter, blob, filename_format)

@@ -18,12 +18,15 @@ module Submissions
         set_submission_preferences['send_email'] = true if params['send_completed_email']
         expire_at = attrs[:expire_at] || Templates.build_default_expire_at(template)
 
-        submission = template.submissions.new(created_by_user: user, source:,
-                                              account_id: user.account_id,
-                                              preferences: set_submission_preferences,
-                                              name: with_template ? attrs[:name] : (attrs[:name] || template.name),
-                                              expire_at:,
-                                              template_submitters: [], submitters_order:)
+        submission = template.submissions.new(
+          created_by_user: user, source:,
+          account_id: user.account_id,
+          preferences: set_submission_preferences,
+          name: with_template ? attrs[:name] : (attrs[:name].presence || template.name),
+          variables: attrs[:variables] || {},
+          expire_at:,
+          template_submitters: [], submitters_order:
+        )
 
         template_submitters = template.submitters.deep_dup
 
@@ -139,9 +142,11 @@ module Submissions
       end
 
       if template_fields != (submission.template_fields || submission.template.fields) ||
-         submitters_attrs.any? { |e| e[:completed].present? } || !with_template
+         submitters_attrs.any? { |e| e[:completed].present? } || !with_template || submission.variables.present?
         submission.template_fields = template_fields
         submission.template_schema = submission.template.schema if submission.template_schema.blank?
+        submission.variables_schema = submission.template.variables_schema if submission.template_id &&
+                                                                              submission.variables_schema.blank?
       end
 
       submission
@@ -275,6 +280,7 @@ module Submissions
       end
 
       field['preferences'] = (field['preferences'] || {}).merge(attrs['preferences']) if attrs['preferences'].present?
+      field['validation'] = (field['validation'] || {}).merge(attrs['validation']) if attrs['validation'].present?
 
       return field if attrs['validation_pattern'].blank?
 
@@ -331,8 +337,8 @@ module Submissions
       end
     end
 
-    def assign_completed_attributes(submitter)
-      submitter.values = Submitters::SubmitValues.merge_default_values(submitter)
+    def assign_completed_attributes(submitter, with_verification: true)
+      submitter.values = Submitters::SubmitValues.merge_default_values(submitter, with_verification:)
       submitter.values = Submitters::SubmitValues.maybe_remove_condition_values(submitter)
 
       formula_values = Submitters::SubmitValues.build_formula_values(submitter)

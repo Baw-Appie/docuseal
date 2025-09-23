@@ -70,6 +70,7 @@ module Submissions
 
   def update_template_fields!(submission)
     submission.template_fields = submission.template.fields
+    submission.variables_schema = submission.template.variables_schema
     submission.template_schema = submission.template.schema
     submission.template_submitters = submission.template.submitters if submission.template_submitters.blank?
 
@@ -239,7 +240,7 @@ module Submissions
 
     item['conditions'].each_with_object([]) do |condition, acc|
       result =
-        if fields_index[condition['field_uuid']]['submitter_uuid'] == include_submitter_uuid
+        if fields_index.dig(condition['field_uuid'], 'submitter_uuid') == include_submitter_uuid
           submitter_conditions_acc << condition if submitter_conditions_acc
 
           true

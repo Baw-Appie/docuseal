@@ -14,10 +14,10 @@ class ProcessSubmitterCompletionJob
 
     if is_all_completed && submitter.completed_at == submitter.submission.submitters.maximum(:completed_at)
       if submitter.submission.account.account_configs.exists?(key: AccountConfig::COMBINE_PDF_RESULT_KEY, value: true)
-        Submissions::GenerateCombinedAttachment.call(submitter)
+        Submissions::EnsureCombinedGenerated.call(submitter)
       end
 
-      Submissions::GenerateAuditTrail.call(submitter.submission)
+      Submissions::EnsureAuditGenerated.call(submitter.submission)
 
       enqueue_completed_emails(submitter)
     end
@@ -38,12 +38,19 @@ class ProcessSubmitterCompletionJob
 
     submission = submitter.submission
 
+    complete_verification_events, sms_events =
+      submitter.submission_events.where(event_type: %i[send_sms send_2fa_sms complete_verification])
+               .partition { |e| e.event_type == 'complete_verification' }
+
+    complete_verification_event = complete_verification_events.first
+
     completed_submitter.assign_attributes(
       submission_id: submitter.submission_id,
       account_id: submission.account_id,
       template_id: submission.template_id,
       source: submission.source,
-      sms_count: submitter.submission_events.where(event_type: %w[send_sms send_2fa_sms]).count,
+      sms_count: sms_events.sum { |e| e.data['segments'] || 1 },
+      verification_method: complete_verification_event&.data&.dig('method'),
       completed_at: submitter.completed_at
     )
 
@@ -146,7 +153,8 @@ class ProcessSubmitterCompletionJob
         current_group_index = submitter_groups.find { |_, group| group.any? { |s| s['uuid'] == submitter.uuid } }&.first
 
         if submitter_groups[current_group_index + 1] &&
-           submitters_index.values_at(*submitter_groups[current_group_index].pluck('uuid')).all?(&:completed_at?)
+           submitters_index.values_at(*submitter_groups[current_group_index].pluck('uuid'))
+                           .compact.all?(&:completed_at?)
           submitter_groups[current_group_index + 1]
         end
       else
@@ -159,7 +167,7 @@ class ProcessSubmitterCompletionJob
         end
       end
 
-    next_submitters = submitters_index.values_at(*Array.wrap(next_submitter_items).pluck('uuid'))
+    next_submitters = submitters_index.values_at(*Array.wrap(next_submitter_items).pluck('uuid')).compact
 
     Submitters.send_signature_requests(next_submitters)
   end
