@@ -24,7 +24,7 @@ jobs:
       uses: docker/metadata-action@v4
       with:
         images: docuseal/docuseal
-        tags: type=semver,pattern={{version}}
+        tags: type=semver,pattern={{ github.ref_name }}
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -54,5 +54,5 @@ jobs:
         push: true
         platforms: linux/amd64
         tags: |
-          ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:${{ inputs.version }}
+          ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:${{ github.ref_name }}
           ghcr.io/${{ steps.string.outputs.lowercase }}/docuseal:latest
