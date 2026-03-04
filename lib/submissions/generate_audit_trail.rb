@@ -23,6 +23,8 @@ module Submissions
     RTL_REGEXP = TextUtils::RTL_REGEXP
     MAX_IMAGE_HEIGHT = 100
 
+    CHECKSUM_LIMIT = 30
+
     US_TIMEZONES = TimeUtils::US_TIMEZONES
 
     module_function
@@ -114,6 +116,8 @@ module Submissions
       configs = submission.account.account_configs.where(key: [AccountConfig::WITH_AUDIT_VALUES_KEY,
                                                                AccountConfig::WITH_SIGNATURE_ID,
                                                                AccountConfig::WITH_FILE_LINKS_KEY,
+                                                               AccountConfig::WITH_TIMESTAMP_SECONDS_KEY,
+                                                               AccountConfig::WITH_AUDIT_SENDER_KEY,
                                                                AccountConfig::WITH_SUBMITTER_TIMEZONE_KEY])
 
       last_submitter = submission.submitters.select(&:completed_at).max_by(&:completed_at)
@@ -121,7 +125,9 @@ module Submissions
       with_signature_id = configs.find { |c| c.key == AccountConfig::WITH_SIGNATURE_ID }&.value == true
       with_file_links = configs.find { |c| c.key == AccountConfig::WITH_FILE_LINKS_KEY }&.value == true
       with_audit_values = configs.find { |c| c.key == AccountConfig::WITH_AUDIT_VALUES_KEY }&.value != false
+      with_audit_sender = configs.find { |c| c.key == AccountConfig::WITH_AUDIT_SENDER_KEY }&.value == true
       with_submitter_timezone = configs.find { |c| c.key == AccountConfig::WITH_SUBMITTER_TIMEZONE_KEY }&.value == true
+      with_timestamp_seconds = configs.find { |c| c.key == AccountConfig::WITH_TIMESTAMP_SECONDS_KEY }&.value == true
 
       timezone = account.timezone
       timezone = last_submitter.timezone || account.timezone if with_submitter_timezone
@@ -216,7 +222,7 @@ module Submissions
           composer.document.layout.formatted_text_box(
             [
               { text: "#{I18n.t('original_sha256')}:\n", font: [FONT_NAME, { variant: :bold }] },
-              original_documents.map { |d| d.metadata['sha256'] || d.checksum }.join("\n"),
+              original_documents.map { |d| d.metadata['sha256'] || d.checksum }.first(CHECKSUM_LIMIT).join("\n"),
               "\n",
               { text: "#{I18n.t('result_sha256')}:\n", font: [FONT_NAME, { variant: :bold }] },
               document.metadata['sha256'] || document.checksum,
@@ -248,7 +254,7 @@ module Submissions
           submission.submission_events.find { |e| e.submitter_id == submitter.id && e.click_email? }
 
         verify_email_event =
-          submission.submission_events.find { |e| e.submitter_id == submitter.id && e.phone_verified? }
+          submission.submission_events.find { |e| e.submitter_id == submitter.id && e.email_verified? }
 
         is_phone_verified =
           submission.template_fields.any? do |e|
@@ -261,6 +267,11 @@ module Submissions
         is_id_verified =
           submission.template_fields.any? do |e|
             e['type'] == 'verification' && e['submitter_uuid'] == submitter.uuid && submitter.values[e['uuid']].present?
+          end
+
+        is_kba_passed =
+          submission.template_fields.any? do |e|
+            e['type'] == 'kba' && e['submitter_uuid'] == submitter.uuid && submitter.values[e['uuid']].present?
           end
 
         info_rows = [
@@ -285,6 +296,9 @@ module Submissions
                 },
                 is_id_verified && {
                   text: "#{I18n.t('identity_verification')}: #{I18n.t('verified')}\n"
+                },
+                is_kba_passed && {
+                  text: "#{I18n.t('knowledge_based_authentication')}: #{I18n.t('passed')}\n"
                 },
                 completed_event.data['ip'] && { text: "IP: #{completed_event.data['ip']}\n" },
                 completed_event.data['sid'] && { text: "#{I18n.t('session_id')}: #{completed_event.data['sid']}\n" },
@@ -329,7 +343,7 @@ module Submissions
           submitter_field_counters[field['type']] += 1
 
           next if field['submitter_uuid'] != submitter.uuid
-          next if field['type'] == 'heading'
+          next if field['type'] == 'heading' || field['type'] == 'strikethrough'
           next if !with_audit_values && !field['type'].in?(%w[signature initials])
           next if skip_grouped_field_uuids[field['uuid']]
 
@@ -351,7 +365,7 @@ module Submissions
               text_align: field_name.to_s.match?(RTL_REGEXP) ? :right : :left,
               line_spacing: 1.3, padding: [0, 0, 2, 0]
             ),
-            if field['type'].in?(%w[image signature initials stamp]) &&
+            if field['type'].in?(%w[image signature initials stamp kba]) &&
                (attachment = submitter.attachments.find { |a| a.uuid == value }) &&
                attachment.image?
 
@@ -454,6 +468,11 @@ module Submissions
                                       name].join(' ')
             I18n.t('submission_event_names.invite_party_by_html', invited_submitter_name:,
                                                                   submitter_name:)
+          elsif with_audit_sender && (event.event_type == 'send_email' || event.event_type == 'send_sms')
+            [
+              I18n.t("submission_event_names.#{event.event_type}_to_html", submitter_name:),
+              "<b>#{I18n.t(:from)}</b> #{submission.created_by_user.full_name} #{submission.created_by_user.email}"
+            ].join("\n")
           elsif event.event_type.include?('send_')
             I18n.t("submission_event_names.#{event.event_type}_to_html", submitter_name:)
           else
@@ -462,11 +481,22 @@ module Submissions
 
         bold_text, normal_text = text.match(%r{<b>(.*?)</b>(.*)}).captures
 
+        text_box = [{ text: bold_text, font: [FONT_NAME, { variant: :bold }] }, normal_text]
+
+        if text.include?("\n")
+          text_box = text.split("\n")[1..].reduce(text_box) do |acc, row|
+            bold_text, normal_text = row.match(%r{<b>(.*?)</b>(.*)}).captures
+
+            [*acc, "\n", { text: bold_text, font: [FONT_NAME, { variant: :bold }] }, normal_text]
+          end
+        end
+
+        time_format = with_timestamp_seconds ? :detailed : :long
+
         [
-          "#{I18n.l(event.event_timestamp.in_time_zone(timezone), format: :long, locale: account.locale)} " \
+          "#{I18n.l(event.event_timestamp.in_time_zone(timezone), format: time_format, locale: account.locale)} " \
           "#{TimeUtils.timezone_abbr(timezone, event.event_timestamp)}",
-          composer.document.layout.formatted_text_box([{ text: bold_text, font: [FONT_NAME, { variant: :bold }] },
-                                                       normal_text])
+          composer.document.layout.formatted_text_box(text_box)
         ]
       end
 
@@ -481,7 +511,7 @@ module Submissions
 
     def select_attachments(submitter)
       original_documents = submitter.submission.schema_documents.preload(:blob)
-      is_more_than_two_images = original_documents.count(&:image?) > 1
+      is_more_than_two_images = original_documents.many?(&:image?)
 
       submitter.documents.preload(:blob).reject do |attachment|
         is_more_than_two_images &&

@@ -20,8 +20,9 @@
     />
     <DragPlaceholder
       ref="dragPlaceholder"
-      :field="fieldsDragFieldRef.value || toRaw(dragField)"
+      :field="customDragFieldRef.value || fieldsDragFieldRef.value || toRaw(dragField)"
       :is-field="template.fields.includes(fieldsDragFieldRef.value)"
+      :is-custom="!!customDragFieldRef.value"
       :is-default="defaultFields.includes(toRaw(dragField))"
       :is-required="defaultRequiredFields.includes(toRaw(dragField))"
     />
@@ -80,7 +81,7 @@
         />
         <template v-else>
           <form
-            v-if="withSignYourselfButton && template.submitters.length < 2"
+            v-if="withSignYourselfButton && undefinedSubmitters.length < 2"
             target="_blank"
             data-turbo="false"
             class="inline"
@@ -175,7 +176,10 @@
                 {{ t('save') }}
               </span>
             </button>
-            <div class="dropdown dropdown-end">
+            <div
+              class="dropdown dropdown-end"
+              :class="{ 'dropdown-open': isDownloading }"
+            >
               <label
                 tabindex="0"
                 class="base-button !rounded-l-none !pl-1 !pr-2 !border-l-neutral-500"
@@ -208,6 +212,30 @@
                     <IconAdjustments class="w-6 h-6 flex-shrink-0" />
                     <span class="whitespace-nowrap">{{ t('preferences') }}</span>
                   </a>
+                </li>
+                <li v-if="withDownload">
+                  <button
+                    class="flex space-x-2"
+                    :disabled="isDownloading"
+                    @click.stop.prevent="download"
+                  >
+                    <IconInnerShadowTop
+                      v-if="isDownloading"
+                      class="animate-spin w-6 h-6 flex-shrink-0"
+                    />
+                    <IconDownload
+                      v-else
+                      class="w-6 h-6 flex-shrink-0"
+                    />
+                    <span
+                      v-if="isDownloading"
+                      class="whitespace-nowrap"
+                    >{{ t('downloading_') }}</span>
+                    <span
+                      v-else
+                      class="whitespace-nowrap"
+                    >{{ t('download') }}</span>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -260,8 +288,12 @@
           :style="{ backgroundColor }"
         >
           <Upload
-            v-if="sortedDocuments.length && editable && withUploadButton"
+            v-if="editable && withUploadButton"
+            v-show="sortedDocuments.length"
+            ref="upload"
             :accept-file-types="acceptFileTypes"
+            :authenticity-token="authenticityToken"
+            :with-google-drive="withGoogleDrive"
             :template-id="template.id"
             @success="updateFromUpload"
           />
@@ -297,6 +329,8 @@
               v-if="withUploadButton"
               :template-id="template.id"
               :accept-file-types="acceptFileTypes"
+              :with-google-drive="withGoogleDrive"
+              @click-google-drive="$refs.upload.openGoogleDriveModal()"
               @success="updateFromUpload"
             />
             <button
@@ -329,7 +363,7 @@
                 :is-drag="!!dragField"
                 :input-mode="inputMode"
                 :default-fields="[...defaultRequiredFields, ...defaultFields]"
-                :allow-draw="!onlyDefinedFields || drawField"
+                :allow-draw="!onlyDefinedFields || drawField || drawCustomField"
                 :with-signature-id="withSignatureId"
                 :with-prefillable="withPrefillable"
                 :data-document-uuid="document.uuid"
@@ -338,11 +372,21 @@
                 :with-field-placeholder="withFieldPlaceholder"
                 :draw-field="drawField"
                 :draw-field-type="drawFieldType"
+                :draw-custom-field="drawCustomField"
                 :editable="editable"
+                :is-mobile="isMobile"
                 :base-url="baseUrl"
-                @draw="[onDraw($event), withSelectedFieldType ? '' : drawFieldType = '', showDrawField = false]"
+                :with-fields-detection="withFieldsDetection"
+                @draw="[onDraw($event), withSelectedFieldType ? '' : drawFieldType = '', drawCustomField = null, showDrawField = false]"
                 @drop-field="onDropfield"
                 @remove-area="removeArea"
+                @paste-field="pasteField"
+                @copy-field="copyField"
+                @add-custom-field="addCustomField"
+                @set-draw="[drawField = $event.field, drawOption = $event.option]"
+                @copy-selected-areas="copySelectedAreas"
+                @delete-selected-areas="deleteSelectedAreas"
+                @autodetect-fields="detectFieldsForPage"
               />
               <DocumentControls
                 v-if="isBreakpointLg && editable"
@@ -368,6 +412,8 @@
                 v-if="withUploadButton"
                 :template-id="template.id"
                 :accept-file-types="acceptFileTypes"
+                :authenticity-token="authenticityToken"
+                :with-google-drive="withGoogleDrive"
                 @success="updateFromUpload"
               />
               <button
@@ -394,15 +440,18 @@
         v-if="withFieldsList && !isMobile"
         id="fields_list_container"
         class="relative w-80 flex-none mt-1 pr-4 pl-0.5 hidden md:block fields-list-container"
-        :class="drawField ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'"
+        :class="drawField || drawCustomField ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'"
       >
         <div
-          v-if="showDrawField || drawField"
+          v-if="showDrawField || drawField || drawCustomField"
           class="sticky inset-0 h-full z-20"
           :style="{ backgroundColor }"
         >
           <div class="bg-base-200 rounded-lg p-5 text-center space-y-4 draw-field-container">
-            <p>
+            <p v-if="(drawField?.type || drawFieldType || drawCustomField?.type) === 'strikethrough'">
+              {{ t('draw_strikethrough_the_document') }}
+            </p>
+            <p v-else>
               {{ t('draw_field_on_the_document') }}
             </p>
             <div>
@@ -413,10 +462,10 @@
                 {{ t('cancel') }}
               </button>
               <a
-                v-if="!drawField && !drawOption && !['stamp', 'signature', 'initials', 'heading'].includes(drawField?.type || drawFieldType)"
+                v-if="!drawField && !drawOption && !['stamp', 'signature', 'initials', 'heading', 'strikethrough'].includes(drawField?.type || drawFieldType || drawCustomField?.type)"
                 href="#"
                 class="link block mt-3 text-sm"
-                @click.prevent="[addField(drawFieldType), drawField = null, drawOption = null, withSelectedFieldType ? '' : drawFieldType = '', showDrawField = false]"
+                @click.prevent="drawCustomField ? addCustomFieldWithoutDraw() : [addField(drawFieldType), drawField = null, drawOption = null, withSelectedFieldType ? '' : drawFieldType = '', showDrawField = false]"
               >
                 {{ t('or_add_field_without_drawing') }}
               </a>
@@ -432,12 +481,15 @@
             :with-help="withHelp"
             :default-submitters="defaultSubmitters"
             :draw-field-type="drawFieldType"
+            :custom-fields="customFields"
+            :with-custom-fields="withCustomFields"
             :with-fields-search="withFieldsSearch"
             :default-fields="[...defaultRequiredFields, ...defaultFields]"
             :template="template"
             :default-required-fields="defaultRequiredFields"
             :field-types="fieldTypes"
             :with-sticky-submitters="withStickySubmitters"
+            :with-fields-detection="withFieldsDetection"
             :with-signature-id="withSignatureId"
             :with-prefillable="withPrefillable"
             :only-defined-fields="onlyDefinedFields"
@@ -445,7 +497,9 @@
             :show-tour-start-form="showTourStartForm"
             @add-field="addField"
             @set-draw="[drawField = $event.field, drawOption = $event.option]"
+            @select-submitter="selectedSubmitter = $event"
             @set-draw-type="[drawFieldType = $event, showDrawField = true]"
+            @set-draw-custom-field="[drawCustomField = $event, showDrawField = true]"
             @set-drag="dragField = $event"
             @set-drag-placeholder="$refs.dragPlaceholder.dragPlaceholder = $event"
             @change-submitter="selectedSubmitter = $event"
@@ -478,6 +532,43 @@
         @select="startFieldDraw($event)"
       />
     </div>
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      enter-from-class="translate-y-4 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition-all duration-300 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-4 opacity-0"
+    >
+      <div
+        v-if="isDetectingPageFields || detectingFieldsAddedCount !== null"
+        class="sticky bottom-0 z-50"
+      >
+        <div class="absolute left-0 right-0 h-0 overflow-visible bottom-16 z-50 flex justify-center">
+          <div
+            class="rounded-full bg-base-content h-12 flex items-center justify-center space-x-1.5 uppercase font-semibold text-white text-sm cursor-default"
+            style="min-width: 180px"
+          >
+            <template v-if="detectingFieldsAddedCount !== null">
+              <span>{{ (detectingFieldsAddedCount === 1 ? t('field_added') : t('fields_added')).replace('{count}', detectingFieldsAddedCount) }}</span>
+            </template>
+            <template v-else>
+              <IconInnerShadowTop
+                v-if="!detectingAnalyzingProgress"
+                width="20"
+                class="animate-spin"
+              />
+              <span v-if="detectingAnalyzingProgress">
+                {{ Math.round(detectingAnalyzingProgress * 100) }}% {{ t('analyzing_') }}
+              </span>
+              <span v-else>
+                {{ t('processing_') }}
+              </span>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Transition>
     <div
       id="docuseal_modal_container"
       class="modal-container"
@@ -499,7 +590,7 @@ import DocumentPreview from './preview'
 import DocumentControls from './controls'
 import MobileFields from './mobile_fields'
 import FieldSubmitter from './field_submitter'
-import { IconPlus, IconUsersPlus, IconDeviceFloppy, IconChevronDown, IconEye, IconWritingSign, IconInnerShadowTop, IconInfoCircle, IconAdjustments } from '@tabler/icons-vue'
+import { IconPlus, IconUsersPlus, IconDeviceFloppy, IconChevronDown, IconEye, IconWritingSign, IconInnerShadowTop, IconInfoCircle, IconAdjustments, IconDownload } from '@tabler/icons-vue'
 import { v4 } from 'uuid'
 import { ref, computed, toRaw } from 'vue'
 import * as i18n from './i18n'
@@ -525,6 +616,7 @@ export default {
     Contenteditable,
     IconUsersPlus,
     IconChevronDown,
+    IconDownload,
     IconAdjustments,
     IconEye,
     IconDeviceFloppy
@@ -542,14 +634,20 @@ export default {
       backgroundColor: this.backgroundColor,
       withPhone: this.withPhone,
       withVerification: this.withVerification,
+      withKba: this.withKba,
       withPayment: this.withPayment,
       isPaymentConnected: this.isPaymentConnected,
       withFormula: this.withFormula,
       withConditions: this.withConditions,
+      withCustomFields: this.withCustomFields,
       isInlineSize: this.isInlineSize,
       defaultDrawFieldType: this.defaultDrawFieldType,
-      selectedAreaRef: computed(() => this.selectedAreaRef),
-      fieldsDragFieldRef: computed(() => this.fieldsDragFieldRef)
+      selectedAreasRef: computed(() => this.selectedAreasRef),
+      fieldsDragFieldRef: computed(() => this.fieldsDragFieldRef),
+      customDragFieldRef: computed(() => this.customDragFieldRef),
+      isSelectModeRef: computed(() => this.isSelectModeRef),
+      isCmdKeyRef: computed(() => this.isCmdKeyRef),
+      getFieldTypeIndex: this.getFieldTypeIndex
     }
   },
   props: {
@@ -571,6 +669,11 @@ export default {
       type: Boolean,
       required: false,
       default: null
+    },
+    withDownload: {
+      type: Boolean,
+      required: false,
+      default: false
     },
     backgroundColor: {
       type: String,
@@ -606,6 +709,26 @@ export default {
       type: Boolean,
       required: false,
       default: true
+    },
+    withFieldsDetection: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    withCustomFields: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    withPrefillable: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    customFields: {
+      type: Array,
+      required: false,
+      default: () => []
     },
     withAddPageButton: {
       type: Boolean,
@@ -743,6 +866,11 @@ export default {
       required: false,
       default: null
     },
+    withKba: {
+      type: Boolean,
+      required: false,
+      default: null
+    },
     withPayment: {
       type: Boolean,
       required: false,
@@ -759,6 +887,11 @@ export default {
       default: false
     },
     withConditions: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    withGoogleDrive: {
       type: Boolean,
       required: false,
       default: false
@@ -783,14 +916,18 @@ export default {
     return {
       documentRefs: [],
       isBreakpointLg: false,
+      isDownloading: false,
       isLoadingBlankPage: false,
       isSaving: false,
+      isDetectingPageFields: false,
+      detectingAnalyzingProgress: null,
+      detectingFieldsAddedCount: null,
       selectedSubmitter: null,
       showDrawField: false,
       pendingFieldAttachmentUuids: [],
       drawField: null,
-      copiedArea: null,
       drawFieldType: null,
+      drawCustomField: null,
       drawOption: null,
       dragField: null,
       isDragFile: false
@@ -798,20 +935,34 @@ export default {
   },
   computed: {
     submitterDefaultNames: FieldSubmitter.computed.names,
-    selectedAreaRef: () => ref(),
+    isSelectModeRef: () => ref(false),
+    isCmdKeyRef: () => ref(false),
     fieldsDragFieldRef: () => ref(),
+    customDragFieldRef: () => ref(),
+    selectedAreasRef: () => ref([]),
     language () {
       return this.locale.split('-')[0].toLowerCase()
     },
-    withPrefillable () {
-      if (this.template.fields) {
-        return this.template.fields.some((f) => f.prefillable)
-      } else {
-        return false
-      }
+    undefinedSubmitters () {
+      return this.template.submitters.filter((submitter) => {
+        return !submitter.invite_by_uuid &&
+          !submitter.optional_invite_by_uuid &&
+          !submitter.invite_via_field_uuid &&
+          !submitter.linked_to_uuid &&
+          !submitter.is_requester &&
+          !submitter.email
+      })
     },
     isInlineSize () {
       return CSS.supports('container-type: size')
+    },
+    lowestSelectedArea () {
+      return this.selectedAreasRef.value.reduce((acc, area) => {
+        return area.y + area.h < acc.y + acc.h ? acc : area
+      }, this.selectedAreasRef.value[0])
+    },
+    lastSelectedArea () {
+      return this.selectedAreasRef.value[this.selectedAreasRef.value.length - 1]
     },
     isMobile () {
       const isMobileSafariIos = 'ontouchstart' in window && navigator.maxTouchPoints > 0 && /AppleWebKit/i.test(navigator.userAgent)
@@ -848,13 +999,25 @@ export default {
 
       return areas
     },
+    fieldTypeIndexMap () {
+      const map = {}
+      const typeCounters = {}
+
+      this.template.fields.forEach((f) => {
+        typeCounters[f.type] ||= 0
+        map[f.uuid] = typeCounters[f.type]
+        typeCounters[f.type]++
+      })
+
+      return map
+    },
     isAllRequiredFieldsAdded () {
       return !this.defaultRequiredFields?.some((f) => {
         return !this.template.fields?.some((field) => field.name === f.name)
       })
     },
     selectedField () {
-      return this.template.fields.find((f) => f.areas?.includes(this.selectedAreaRef.value))
+      return this.template.fields.find((f) => f.areas?.includes(this.lastSelectedArea))
     },
     sortedDocuments () {
       return this.template.schema.map((item) => {
@@ -941,6 +1104,156 @@ export default {
   },
   methods: {
     toRaw,
+    addCustomField (field) {
+      return this.$refs.fields.addCustomField(field)
+    },
+    getFieldTypeIndex (field) {
+      return this.fieldTypeIndexMap[field.uuid]
+    },
+    addCustomFieldWithoutDraw () {
+      const customField = this.drawCustomField
+
+      const field = JSON.parse(JSON.stringify(customField))
+
+      field.uuid = v4()
+      field.submitter_uuid = this.selectedSubmitter.uuid
+      field.areas = []
+
+      if (field.options?.length) {
+        field.options = field.options.map(opt => ({ ...opt, uuid: v4() }))
+      }
+
+      delete field.conditions
+
+      this.insertField(field)
+      this.save()
+
+      this.drawCustomField = null
+      this.showDrawField = false
+    },
+    toggleSelectMode () {
+      this.isSelectModeRef.value = !this.isSelectModeRef.value
+
+      if (!this.isSelectModeRef.value && this.selectedAreasRef.value.length > 1) {
+        this.selectedAreasRef.value = []
+      }
+    },
+    deleteSelectedAreas () {
+      [...this.selectedAreasRef.value].forEach((area) => {
+        this.removeArea(area, false)
+      })
+
+      this.save()
+    },
+    moveSelectedAreas (dx, dy) {
+      let clampedDx = dx
+      let clampedDy = dy
+
+      const rectIndex = {}
+
+      this.selectedAreasRef.value.map((area) => {
+        const key = `${area.attachment_uuid}-${area.page}`
+
+        let rect = rectIndex[key]
+
+        if (!rect) {
+          const documentRef = this.documentRefs.find((e) => e.document.uuid === area.attachment_uuid)
+          const page = documentRef.pageRefs[area.page].$refs.image
+          rect = page.getBoundingClientRect()
+
+          rectIndex[key] = rect
+        }
+
+        const normalizedDx = dx / rect.width
+        const normalizedDy = dy / rect.height
+
+        const maxDxLeft = -area.x
+        const maxDxRight = 1 - area.w - area.x
+        const maxDyTop = -area.y
+        const maxDyBottom = 1 - area.h - area.y
+
+        if (normalizedDx < maxDxLeft) clampedDx = Math.max(clampedDx, maxDxLeft * rect.width)
+        if (normalizedDx > maxDxRight) clampedDx = Math.min(clampedDx, maxDxRight * rect.width)
+        if (normalizedDy < maxDyTop) clampedDy = Math.max(clampedDy, maxDyTop * rect.height)
+        if (normalizedDy > maxDyBottom) clampedDy = Math.min(clampedDy, maxDyBottom * rect.height)
+
+        return [area, rect]
+      }).forEach(([area, rect]) => {
+        area.x += clampedDx / rect.width
+        area.y += clampedDy / rect.height
+      })
+
+      this.debouncedSave()
+    },
+    download () {
+      this.isDownloading = true
+
+      this.baseFetch(`/templates/${this.template.id}/documents`).then(async (response) => {
+        if (response.ok) {
+          const urls = await response.json()
+          const isMobileSafariIos = 'ontouchstart' in window && navigator.maxTouchPoints > 0 && /AppleWebKit/i.test(navigator.userAgent)
+          const isSafariIos = isMobileSafariIos || /iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+          if (isSafariIos && urls.length > 1) {
+            this.downloadSafariIos(urls)
+          } else {
+            this.downloadUrls(urls)
+          }
+        } else {
+          alert(this.t('failed_to_download_files'))
+        }
+      })
+    },
+    downloadUrls (urls) {
+      const fileRequests = urls.map((url) => {
+        return () => {
+          return fetch(url).then(async (resp) => {
+            const blobUrl = URL.createObjectURL(await resp.blob())
+            const link = document.createElement('a')
+
+            link.href = blobUrl
+            link.setAttribute('download', decodeURI(url.split('/').pop()))
+
+            link.click()
+
+            URL.revokeObjectURL(blobUrl)
+          })
+        }
+      })
+
+      fileRequests.reduce(
+        (prevPromise, request) => prevPromise.then(() => request()),
+        Promise.resolve()
+      ).finally(() => {
+        this.isDownloading = false
+      })
+    },
+    downloadSafariIos (urls) {
+      const fileRequests = urls.map((url) => {
+        return fetch(url).then(async (resp) => {
+          const blob = await resp.blob()
+          const blobUrl = URL.createObjectURL(blob.slice(0, blob.size, 'application/octet-stream'))
+          const link = document.createElement('a')
+
+          link.href = blobUrl
+          link.setAttribute('download', decodeURI(url.split('/').pop()))
+
+          return link
+        })
+      })
+
+      Promise.all(fileRequests).then((links) => {
+        links.forEach((link, index) => {
+          setTimeout(() => {
+            link.click()
+
+            URL.revokeObjectURL(link.href)
+          }, index * 50)
+        })
+      }).finally(() => {
+        this.isDownloading = false
+      })
+    },
     onDragover (e) {
       if (this.$refs.dragPlaceholder?.dragPlaceholder) {
         this.$refs.dragPlaceholder.isMask = e.target.id === 'mask'
@@ -984,14 +1297,17 @@ export default {
       const sortArea = (aArea, bArea) => {
         if (aArea.attachment_uuid === bArea.attachment_uuid) {
           if (aArea.page === bArea.page) {
-            if (Math.abs(aArea.y - bArea.y) < 0.01) {
+            const aY = aArea.y + aArea.h
+            const bY = bArea.y + bArea.h
+
+            if (Math.abs(aY - bY) < 0.01 || (aArea.h < bArea.h ? (aArea.y >= bArea.y && aY <= bY) : (bArea.y >= aArea.y && bY <= aY))) {
               if (aArea.x === bArea.x) {
                 return 0
               } else {
                 return aArea.x - bArea.x
               }
             } else {
-              return aArea.y - bArea.y
+              return (aArea.y + aArea.h) - (bArea.y + bArea.h)
             }
           } else {
             return aArea.page - bArea.page
@@ -1041,6 +1357,72 @@ export default {
         this.save()
       }
     },
+    findFieldInsertIndex (field) {
+      if (!field.areas?.length) return -1
+
+      const area = field.areas[0]
+
+      const attachmentUuidsIndex = this.template.schema.reduce((acc, e, index) => {
+        acc[e.attachment_uuid] = index
+
+        return acc
+      }, {})
+
+      const compareAreas = (a, b) => {
+        const aAttIdx = attachmentUuidsIndex[a.attachment_uuid]
+        const bAttIdx = attachmentUuidsIndex[b.attachment_uuid]
+
+        if (aAttIdx !== bAttIdx) return aAttIdx - bAttIdx
+        if (a.page !== b.page) return a.page - b.page
+
+        const aY = a.y + a.h
+        const bY = b.y + b.h
+
+        if (Math.abs(aY - bY) < 0.01) return a.x - b.x
+        if (a.h < b.h ? a.y >= b.y && aY <= bY : b.y >= a.y && bY <= aY) return a.x - b.x
+
+        return aY - bY
+      }
+
+      let closestBeforeIndex = -1
+      let closestBeforeArea = null
+      let closestAfterIndex = -1
+      let closestAfterArea = null
+
+      this.template.fields.forEach((f, index) => {
+        if (f.submitter_uuid === field.submitter_uuid) {
+          (f.areas || []).forEach((a) => {
+            const cmp = compareAreas(a, area)
+
+            if (cmp < 0) {
+              if (!closestBeforeArea || (compareAreas(a, closestBeforeArea) > 0 && closestBeforeIndex < index)) {
+                closestBeforeIndex = index
+                closestBeforeArea = a
+              }
+            } else {
+              if (!closestAfterArea || (compareAreas(a, closestAfterArea) < 0 && closestAfterIndex > index)) {
+                closestAfterIndex = index
+                closestAfterArea = a
+              }
+            }
+          })
+        }
+      })
+
+      if (closestBeforeIndex !== -1) return closestBeforeIndex + 1
+      if (closestAfterIndex !== -1) return closestAfterIndex
+
+      return -1
+    },
+    insertField (field) {
+      const insertIndex = this.findFieldInsertIndex(field)
+
+      if (insertIndex !== -1) {
+        this.template.fields.splice(insertIndex, 0, field)
+      } else {
+        this.template.fields.push(field)
+      }
+    },
     closeDropdown () {
       document.activeElement.blur()
     },
@@ -1084,12 +1466,17 @@ export default {
         }
       }
 
+      if (field.type === 'strikethrough') {
+        field.readonly = true
+        field.default_value = true
+      }
+
       if (type === 'signature' && [true, false].includes(this.withSignatureId)) {
         field.preferences ||= {}
         field.preferences.with_signature_id = this.withSignatureId
       }
 
-      this.template.fields.push(field)
+      this.insertField(field)
 
       this.save()
     },
@@ -1175,6 +1562,7 @@ export default {
     clearDrawField () {
       this.drawField = null
       this.drawOption = null
+      this.drawCustomField = null
       this.showDrawField = false
 
       if (!this.withSelectedFieldType) {
@@ -1182,49 +1570,92 @@ export default {
       }
     },
     onKeyUp (e) {
-      if (e.code === 'Escape') {
-        this.clearDrawField()
+      this.isCmdKeyRef.value = false
 
-        this.selectedAreaRef.value = null
+      if (e.code === 'Escape') {
+        this.selectedAreasRef.value = []
+        this.clearDrawField()
       }
 
-      if (this.editable && ['Backspace', 'Delete'].includes(e.key) && this.selectedAreaRef.value && document.activeElement === document.body) {
-        this.removeArea(this.selectedAreaRef.value)
-
-        this.selectedAreaRef.value = null
+      if (this.editable && ['Backspace', 'Delete'].includes(e.key) && document.activeElement === document.body) {
+        if (this.selectedAreasRef.value.length > 1) {
+          this.deleteSelectedAreas()
+        } else if (this.selectedAreasRef.value.length) {
+          this.removeArea(this.lastSelectedArea)
+        }
       }
     },
     onKeyDown (event) {
-      if ((event.metaKey && event.shiftKey && event.key === 'z') || (event.ctrlKey && event.key === 'Z')) {
+      if (event.key === 'Tab' && document.activeElement === document.body) {
         event.stopImmediatePropagation()
         event.preventDefault()
+
+        this.toggleSelectMode()
+      } else if ((event.metaKey && event.shiftKey && event.key === 'z') || (event.ctrlKey && event.key === 'Z')) {
+        event.stopImmediatePropagation()
+        event.preventDefault()
+
+        this.selectedAreasRef.value = []
 
         this.redo()
       } else if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
         event.stopImmediatePropagation()
         event.preventDefault()
 
+        this.selectedAreasRef.value = []
+
         this.undo()
       } else if ((event.ctrlKey || event.metaKey) && event.key === 'c' && document.activeElement === document.body) {
-        event.preventDefault()
-
-        this.copiedArea = this.selectedAreaRef?.value
-      } else if ((event.ctrlKey || event.metaKey) && event.key === 'v' && this.copiedArea && document.activeElement === document.body) {
+        if (this.selectedAreasRef.value.length > 1) {
+          event.preventDefault()
+          this.copySelectedAreas()
+        } else if (this.selectedAreasRef.value.length) {
+          event.preventDefault()
+          this.copyField()
+        }
+      } else if ((event.ctrlKey || event.metaKey) && event.key === 'v' && this.hasClipboardData() && document.activeElement === document.body) {
         event.preventDefault()
 
         this.pasteField()
-      } else if (this.selectedAreaRef.value && ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(event.key) && document.activeElement === document.body) {
-        event.preventDefault()
-
-        this.handleAreaArrows(event)
+      } else if (['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(event.key) && document.activeElement === document.body) {
+        if (this.selectedAreasRef.value.length > 1) {
+          event.preventDefault()
+          this.handleSelectedAreasArrows(event)
+        } else if (this.selectedAreasRef.value.length) {
+          event.preventDefault()
+          this.handleAreaArrows(event)
+        }
+      } else if (event.metaKey || event.ctrlKey) {
+        this.isCmdKeyRef.value = true
       }
+    },
+    handleSelectedAreasArrows (event) {
+      if (!this.editable) {
+        return
+      }
+
+      const diff = (event.shiftKey ? 5.0 : 1.0)
+      let dx = 0
+      let dy = 0
+
+      if (event.key === 'ArrowRight') {
+        dx = diff
+      } else if (event.key === 'ArrowLeft') {
+        dx = -diff
+      } else if (event.key === 'ArrowUp') {
+        dy = -diff
+      } else if (event.key === 'ArrowDown') {
+        dy = diff
+      }
+
+      this.moveSelectedAreas(dx, dy)
     },
     handleAreaArrows (event) {
       if (!this.editable) {
         return
       }
 
-      const area = this.selectedAreaRef.value
+      const area = this.lastSelectedArea
       const documentRef = this.documentRefs.find((e) => e.document.uuid === area.attachment_uuid)
       const page = documentRef.pageRefs[area.page].$refs.image
       const rect = page.getBoundingClientRect()
@@ -1257,7 +1688,7 @@ export default {
         this.save()
       }, 700)
     },
-    removeArea (area) {
+    removeArea (area, save = true) {
       const field = this.template.fields.find((f) => f.areas?.includes(area))
 
       field.areas.splice(field.areas.indexOf(area), 1)
@@ -1268,7 +1699,11 @@ export default {
         this.removeFieldConditions(field)
       }
 
-      this.save()
+      this.selectedAreasRef.value.splice(this.selectedAreasRef.value.indexOf(area), 1)
+
+      if (save) {
+        this.save()
+      }
     },
     removeFieldConditions (field) {
       this.template.fields.forEach((f) => {
@@ -1291,43 +1726,242 @@ export default {
         }
       })
     },
-    pasteField () {
-      const field = this.template.fields.find((f) => f.areas?.includes(this.copiedArea))
-      const currentArea = this.selectedAreaRef?.value || this.copiedArea
+    copyField () {
+      const area = this.lastSelectedArea
 
-      if (field && currentArea) {
-        const area = {
-          ...JSON.parse(JSON.stringify(this.copiedArea)),
-          attachment_uuid: currentArea.attachment_uuid,
-          page: currentArea.page,
-          x: currentArea.x,
-          y: currentArea.y + currentArea.h * 1.3
+      if (!area) return
+
+      const field = this.template.fields.find((f) => f.areas?.includes(area))
+
+      if (!field) return
+
+      const clipboardData = {
+        field: JSON.parse(JSON.stringify(field)),
+        area: JSON.parse(JSON.stringify(area)),
+        templateId: this.template.id,
+        timestamp: Date.now()
+      }
+
+      delete clipboardData.field.areas
+      delete clipboardData.field.uuid
+      delete clipboardData.field.submitter_uuid
+
+      try {
+        localStorage.setItem('docuseal_clipboard', JSON.stringify(clipboardData))
+      } catch (e) {
+        console.error('Failed to save clipboard:', e)
+      }
+    },
+    copySelectedAreas () {
+      const items = []
+
+      const areas = this.selectedAreasRef.value
+
+      const minX = Math.min(...areas.map(a => a.x))
+      const minY = Math.min(...areas.map(a => a.y))
+
+      areas.forEach((area) => {
+        const field = this.template.fields.find((f) => f.areas?.includes(area))
+
+        if (!field) return
+
+        const fieldCopy = JSON.parse(JSON.stringify(field))
+        const areaCopy = JSON.parse(JSON.stringify(area))
+
+        delete fieldCopy.areas
+        delete fieldCopy.submitter_uuid
+
+        areaCopy.relativeX = area.x - minX
+        areaCopy.relativeY = area.y - minY
+
+        items.push({ field: fieldCopy, area: areaCopy })
+      })
+
+      const clipboardData = {
+        items,
+        templateId: this.template.id,
+        timestamp: Date.now(),
+        isGroup: true
+      }
+
+      try {
+        localStorage.setItem('docuseal_clipboard', JSON.stringify(clipboardData))
+      } catch (e) {
+        console.error('Failed to save clipboard:', e)
+      }
+    },
+    pasteField (targetPosition = null) {
+      const clipboard = localStorage.getItem('docuseal_clipboard')
+
+      if (!clipboard) return
+
+      const data = JSON.parse(clipboard)
+
+      if (Date.now() - data.timestamp >= 3600000) {
+        localStorage.removeItem('docuseal_clipboard')
+
+        return
+      }
+
+      if (data.isGroup && data.items?.length) {
+        this.pasteFieldGroup(data, targetPosition)
+
+        return
+      }
+
+      const field = data.field
+      const area = data.area
+      const isSameTemplate = data.templateId === this.template.id
+
+      if (!field || !area) return
+
+      if (!isSameTemplate) {
+        delete field.conditions
+        delete field.preferences?.formula
+      }
+
+      const defaultAttachmentUuid = this.template.schema[0]?.attachment_uuid
+
+      if (field && (this.lowestSelectedArea || targetPosition)) {
+        const attachmentUuid = targetPosition?.attachment_uuid ||
+          (this.template.documents.find((d) => d.uuid === this.lowestSelectedArea.attachment_uuid) ? this.lowestSelectedArea.attachment_uuid : null) ||
+          defaultAttachmentUuid
+
+        const newArea = {
+          ...JSON.parse(JSON.stringify(area)),
+          attachment_uuid: attachmentUuid,
+          page: targetPosition?.page ?? (attachmentUuid === this.lowestSelectedArea.attachment_uuid ? this.lowestSelectedArea.page : 0),
+          x: targetPosition ? (targetPosition.x - area.w / 2) : Math.min(...this.selectedAreasRef.value.map((area) => area.x)),
+          y: targetPosition ? (targetPosition.y - area.h / 2) : (this.lowestSelectedArea.y + this.lowestSelectedArea.h * 1.3)
         }
 
-        if (['radio', 'multiple'].includes(field.type)) {
-          this.copiedArea.option_uuid ||= field.options[0].uuid
-          area.option_uuid = v4()
+        const newField = {
+          ...JSON.parse(JSON.stringify(field)),
+          uuid: v4(),
+          submitter_uuid: this.selectedSubmitter.uuid,
+          areas: [newArea]
+        }
 
-          const lastOption = field.options[field.options.length - 1]
+        if (['radio', 'multiple'].includes(field.type) && field.options?.length) {
+          const oldOptionUuid = area.option_uuid
+          const optionsMap = {}
 
-          if (!field.areas.find((a) => lastOption.uuid === a.option_uuid)) {
-            area.option_uuid = lastOption.uuid
-          } else {
-            field.options.push({ uuid: area.option_uuid })
-          }
-
-          field.areas.push(area)
-        } else {
-          this.template.fields.push({
-            ...JSON.parse(JSON.stringify(field)),
-            uuid: v4(),
-            areas: [area]
+          newField.options = field.options.map((opt) => {
+            const newUuid = v4()
+            optionsMap[opt.uuid] = newUuid
+            return { ...opt, uuid: newUuid }
           })
+
+          newArea.option_uuid = optionsMap[oldOptionUuid] || newField.options[0].uuid
         }
 
-        this.selectedAreaRef.value = area
+        this.insertField(newField)
+
+        this.selectedAreasRef.value = [newArea]
 
         this.save()
+      }
+    },
+    pasteFieldGroup (data, targetPosition) {
+      const isSameTemplate = data.templateId === this.template.id
+      const defaultAttachmentUuid = this.template.schema[0]?.attachment_uuid
+
+      const attachmentUuid = targetPosition?.attachment_uuid ||
+        (this.lowestSelectedArea && this.template.documents.find((d) => d.uuid === this.lowestSelectedArea.attachment_uuid) ? this.lowestSelectedArea.attachment_uuid : null) ||
+        defaultAttachmentUuid
+
+      const page = targetPosition?.page ?? (this.lowestSelectedArea && attachmentUuid === this.lowestSelectedArea.attachment_uuid ? this.lowestSelectedArea.page : 0)
+
+      let baseX, baseY
+
+      if (targetPosition) {
+        baseX = targetPosition.x
+        baseY = targetPosition.y
+      } else if (this.lowestSelectedArea) {
+        baseX = Math.min(...this.selectedAreasRef.value.map((area) => area.x))
+        baseY = this.lowestSelectedArea.y + this.lowestSelectedArea.h * 1.3
+      } else {
+        baseX = 0.1
+        baseY = 0.1
+      }
+
+      const newAreas = []
+
+      const fieldUuidIndex = {}
+      const fieldOptionsMap = {}
+
+      data.items.forEach((item) => {
+        const field = JSON.parse(JSON.stringify(item.field))
+        const area = JSON.parse(JSON.stringify(item.area))
+
+        if (!isSameTemplate) {
+          delete field.conditions
+          delete field.preferences?.formula
+        }
+
+        const newArea = {
+          ...area,
+          attachment_uuid: attachmentUuid,
+          page,
+          x: baseX + (area.relativeX || 0),
+          y: baseY + (area.relativeY || 0)
+        }
+
+        delete newArea.relativeX
+        delete newArea.relativeY
+
+        const newField = fieldUuidIndex[field.uuid] || {
+          ...field,
+          uuid: v4(),
+          submitter_uuid: this.selectedSubmitter.uuid,
+          areas: []
+        }
+
+        fieldUuidIndex[field.uuid] = newField
+
+        newField.areas.push(newArea)
+        newAreas.push(newArea)
+
+        if (['radio', 'multiple'].includes(field.type) && field.options?.length) {
+          const oldOptionUuid = area.option_uuid
+
+          if (!fieldOptionsMap[field.uuid]) {
+            fieldOptionsMap[field.uuid] = {}
+
+            newField.options = field.options.map((opt) => {
+              const newUuid = v4()
+
+              fieldOptionsMap[field.uuid][opt.uuid] = newUuid
+
+              return { ...opt, uuid: newUuid }
+            })
+          }
+
+          newArea.option_uuid = fieldOptionsMap[field.uuid][oldOptionUuid] || newField.options[0].uuid
+        }
+      })
+
+      Object.values(fieldUuidIndex).forEach((field) => {
+        this.insertField(field)
+      })
+
+      this.selectedAreasRef.value = [...newAreas]
+
+      this.save()
+    },
+    hasClipboardData () {
+      try {
+        const clipboard = localStorage.getItem('docuseal_clipboard')
+
+        if (clipboard) {
+          const data = JSON.parse(clipboard)
+
+          return Date.now() - data.timestamp < 3600000
+        }
+
+        return false
+      } catch {
+        return false
       }
     },
     pushUndo () {
@@ -1345,24 +1979,31 @@ export default {
       const documentRef = this.documentRefs.find((e) => e.document.uuid === area.attachment_uuid)
       const pageMask = documentRef.pageRefs[area.page].$refs.mask
 
-      if (type === 'checkbox') {
+      if (type === 'checkbox' || type === 'radio' || type === 'multiple') {
         area.w = pageMask.clientWidth / 30 / pageMask.clientWidth
         area.h = (pageMask.clientWidth / 30 / pageMask.clientWidth) * (pageMask.clientWidth / pageMask.clientHeight)
       } else if (type === 'image') {
         area.w = pageMask.clientWidth / 5 / pageMask.clientWidth
         area.h = (pageMask.clientWidth / 5 / pageMask.clientWidth) * (pageMask.clientWidth / pageMask.clientHeight)
-      } else if (type === 'signature' || type === 'stamp' || type === 'verification') {
+      } else if (type === 'signature' || type === 'stamp' || type === 'verification' || type === 'kba') {
         area.w = pageMask.clientWidth / 5 / pageMask.clientWidth
         area.h = (pageMask.clientWidth / 5 / pageMask.clientWidth) * (pageMask.clientWidth / pageMask.clientHeight) / 2
       } else if (type === 'initials') {
         area.w = pageMask.clientWidth / 10 / pageMask.clientWidth
         area.h = (pageMask.clientWidth / 35 / pageMask.clientWidth)
+      } else if (type === 'strikethrough') {
+        area.w = pageMask.clientWidth / 5 / pageMask.clientWidth
+        area.h = (pageMask.clientWidth / 70 / pageMask.clientWidth)
       } else {
         area.w = pageMask.clientWidth / 5 / pageMask.clientWidth
         area.h = (pageMask.clientWidth / 35 / pageMask.clientWidth)
       }
     },
     onDraw ({ area, isTooSmall }) {
+      if (this.drawCustomField) {
+        return this.onDrawCustomField(area)
+      }
+
       if (this.drawField) {
         if (this.drawOption) {
           const areaWithoutOption = this.drawField.areas?.find((a) => !a.option_uuid)
@@ -1378,8 +2019,8 @@ export default {
           const previousArea = this.drawField.areas?.[this.drawField.areas.length - 1]
 
           if (this.selectedField?.type === this.drawField.type) {
-            area.w = this.selectedAreaRef.value.w
-            area.h = this.selectedAreaRef.value.h
+            area.w = this.lastSelectedArea.w
+            area.h = this.lastSelectedArea.h
           } else if (previousArea) {
             area.w = previousArea.w
             area.h = previousArea.h
@@ -1404,13 +2045,13 @@ export default {
         }
 
         if (this.template.fields.indexOf(this.drawField) === -1) {
-          this.template.fields.push(this.drawField)
+          this.insertField(this.drawField)
         }
 
         this.drawField = null
         this.drawOption = null
 
-        this.selectedAreaRef.value = area
+        this.selectedAreasRef.value = [area]
 
         this.save()
       } else {
@@ -1428,12 +2069,14 @@ export default {
         }
 
         if (type === 'checkbox' && !this.drawFieldType && (this.template.fields[this.template.fields.length - 1]?.type === 'checkbox' || area.w)) {
-          const previousField = [...this.template.fields].reverse().find((f) => f.type === type)
+          const previousField = this.template.fields.findLast
+            ? this.template.fields.findLast((f) => f.type === type)
+            : [...this.template.fields].reverse().find((f) => f.type === type)
           const previousArea = previousField?.areas?.[previousField.areas.length - 1]
 
           if (previousArea || area.w) {
-            const areaW = previousArea?.w || (30 / pageMask.clientWidth)
-            const areaH = previousArea?.h || (30 / pageMask.clientHeight)
+            const areaW = previousArea?.w || area.w || (30 / pageMask.clientWidth)
+            const areaH = previousArea?.h || area.h || (30 / pageMask.clientHeight)
 
             if ((pageMask.clientWidth * area.w) < 5) {
               area.x = area.x - (areaW / 2)
@@ -1447,8 +2090,8 @@ export default {
 
         if (this.drawFieldType && (area.w === 0 || area.h === 0)) {
           if (this.selectedField?.type === this.drawFieldType) {
-            area.w = this.selectedAreaRef.value.w
-            area.h = this.selectedAreaRef.value.h
+            area.w = this.lastSelectedArea.w
+            area.h = this.lastSelectedArea.h
           } else {
             this.setDefaultAreaSize(area, this.drawFieldType)
           }
@@ -1460,7 +2103,7 @@ export default {
         if (area.w && (type !== 'checkbox' || this.drawFieldType || !isTooSmall)) {
           this.addField(type, area)
 
-          this.selectedAreaRef.value = area
+          this.selectedAreasRef.value = [area]
         }
       }
     },
@@ -1471,6 +2114,10 @@ export default {
 
       if (!this.editable) {
         return
+      }
+
+      if (this.customDragFieldRef.value) {
+        return this.dropCustomField(area)
       }
 
       const field = this.fieldsDragFieldRef.value || {
@@ -1500,8 +2147,12 @@ export default {
           field.default_value = '{{date}}'
         }
 
-        if (['stamp', 'heading'].includes(field.type)) {
+        if (['stamp', 'heading', 'strikethrough'].includes(field.type)) {
           field.readonly = true
+
+          if (field.type === 'strikethrough') {
+            field.default_value = true
+          }
         }
 
         if (field.type === 'date') {
@@ -1536,10 +2187,14 @@ export default {
 
       field.areas.push(fieldArea)
 
-      this.selectedAreaRef.value = fieldArea
+      if (this.selectedAreasRef.value.length < 2) {
+        this.selectedAreasRef.value = [fieldArea]
+      } else {
+        this.selectedAreasRef.value.push(fieldArea)
+      }
 
       if (this.template.fields.indexOf(field) === -1) {
-        this.template.fields.push(field)
+        this.insertField(field)
       }
 
       this.save()
@@ -1549,7 +2204,7 @@ export default {
       if (field.type === 'heading') {
         this.$nextTick(() => {
           const documentRef = this.documentRefs.find((e) => e.document.uuid === area.attachment_uuid)
-          const areaRef = documentRef.pageRefs[area.page].areaRefs.find((ref) => ref.area === this.selectedAreaRef.value)
+          const areaRef = documentRef.pageRefs[area.page].areaRefs.find((ref) => ref.area === fieldArea)
 
           areaRef.isHeadingSelected = true
 
@@ -1557,19 +2212,141 @@ export default {
         })
       }
     },
+    dropCustomField (area) {
+      const customField = this.customDragFieldRef.value
+      const customAreas = customField.areas || []
+
+      const field = JSON.parse(JSON.stringify(customField))
+
+      field.uuid = v4()
+      field.submitter_uuid = this.selectedSubmitter.uuid
+      field.areas = []
+
+      if (field.options?.length) {
+        field.options = field.options.map(opt => ({ ...opt, uuid: v4() }))
+      }
+
+      delete field.conditions
+
+      const dropX = (area.x - 6) / area.maskW
+      const dropY = area.y / area.maskH
+
+      if (customAreas.length > 0) {
+        const refArea = customAreas[0]
+
+        customAreas.forEach((customArea) => {
+          const fieldArea = {
+            x: dropX + (customArea.x - refArea.x),
+            y: dropY + (customArea.y - refArea.y) - (customArea.h / 2),
+            w: customArea.w,
+            h: customArea.h,
+            page: area.page,
+            attachment_uuid: area.attachment_uuid
+          }
+
+          if (customArea.cell_w) {
+            fieldArea.cell_w = customArea.cell_w
+          }
+
+          if (customArea.option_uuid && field.options?.length) {
+            const optionIndex = customField.options.findIndex(o => o.uuid === customArea.option_uuid)
+            if (optionIndex !== -1) {
+              fieldArea.option_uuid = field.options[optionIndex].uuid
+            }
+          }
+
+          field.areas.push(fieldArea)
+        })
+      } else {
+        const fieldArea = {
+          x: dropX,
+          y: dropY,
+          page: area.page,
+          attachment_uuid: area.attachment_uuid
+        }
+
+        this.assignDropAreaSize(fieldArea, field, area)
+
+        field.areas.push(fieldArea)
+      }
+
+      this.selectedAreasRef.value = [field.areas[0]]
+
+      this.insertField(field)
+      this.save()
+
+      document.activeElement?.blur()
+    },
+    onDrawCustomField (area) {
+      const customField = this.drawCustomField
+      const customAreas = customField.areas || []
+
+      const field = JSON.parse(JSON.stringify(customField))
+
+      field.uuid = v4()
+      field.submitter_uuid = this.selectedSubmitter.uuid
+      field.areas = []
+
+      if (field.options?.length) {
+        field.options = field.options.map(opt => ({ ...opt, uuid: v4() }))
+      }
+
+      delete field.conditions
+
+      const isClick = area.w === 0 || area.h === 0
+
+      const firstArea = {
+        x: area.x,
+        y: area.y,
+        w: area.w || customAreas[0]?.w,
+        h: area.h || customAreas[0]?.h,
+        page: area.page,
+        attachment_uuid: area.attachment_uuid
+      }
+
+      if (!firstArea.w || !firstArea.h) {
+        if (customAreas[0]) {
+          firstArea.w = customAreas[0].w
+          firstArea.h = customAreas[0].h
+        } else {
+          this.setDefaultAreaSize(firstArea, field.type)
+        }
+      }
+
+      if (isClick) {
+        firstArea.x -= firstArea.w / 2
+        firstArea.y -= firstArea.h / 2
+      }
+
+      if (field.options?.length) {
+        firstArea.option_uuid = field.options[0].uuid
+      }
+
+      field.areas.push(firstArea)
+
+      this.selectedAreasRef.value = [field.areas[0]]
+
+      this.insertField(field)
+      this.save()
+
+      this.drawCustomField = null
+      this.showDrawField = false
+    },
     assignDropAreaSize (fieldArea, field, area) {
       const fieldType = field.type || 'text'
 
-      const previousField = [...this.template.fields].reverse().find((f) => f.type === fieldType)
+      const previousField = this.template.fields.findLast
+        ? this.template.fields.findLast((f) => f.type === fieldType)
+        : [...this.template.fields].reverse().find((f) => f.type === fieldType)
 
       let baseArea
 
       if (this.selectedField?.type === fieldType) {
-        baseArea = this.selectedAreaRef.value
+        baseArea = this.lastSelectedArea
       } else if (previousField?.areas?.length) {
         baseArea = previousField.areas[previousField.areas.length - 1]
       } else {
-        if (['checkbox'].includes(fieldType)) {
+        if (['checkbox', 'radio', 'multiple'].includes(fieldType)) {
           baseArea = {
             w: area.maskW / 30 / area.maskW,
             h: area.maskW / 30 / area.maskW * (area.maskW / area.maskH)
@@ -1579,7 +2356,7 @@ export default {
             w: area.maskW / 5 / area.maskW,
             h: (area.maskW / 5 / area.maskW) * (area.maskW / area.maskH)
           }
-        } else if (fieldType === 'signature' || fieldType === 'stamp' || fieldType === 'verification') {
+        } else if (fieldType === 'signature' || fieldType === 'stamp' || fieldType === 'verification' || fieldType === 'kba') {
           baseArea = {
             w: area.maskW / 5 / area.maskW,
             h: (area.maskW / 5 / area.maskW) * (area.maskW / area.maskH) / 2
@@ -1588,6 +2365,11 @@ export default {
           baseArea = {
             w: area.maskW / 10 / area.maskW,
             h: area.maskW / 35 / area.maskW
+          }
+        } else if (fieldType === 'strikethrough') {
+          baseArea = {
+            w: area.maskW / 5 / area.maskW,
+            h: area.maskW / 70 / area.maskW
           }
         } else {
           baseArea = {
@@ -1696,7 +2478,7 @@ export default {
           attachment.metadata.pdf.fields.forEach((field) => {
             field.submitter_uuid = this.selectedSubmitter.uuid
 
-            this.template.fields.push(field)
+            this.insertField(field)
           })
         }
       })
@@ -1737,8 +2519,10 @@ export default {
     },
     onDocumentReplace (data) {
       const { replaceSchemaItem, schema, documents } = data
+      // eslint-disable-next-line camelcase
+      const { google_drive_file_id, ...cleanedReplaceSchemaItem } = replaceSchemaItem
 
-      this.template.schema.splice(this.template.schema.indexOf(replaceSchemaItem), 1, { ...replaceSchemaItem, ...schema[0] })
+      this.template.schema.splice(this.template.schema.indexOf(replaceSchemaItem), 1, { ...cleanedReplaceSchemaItem, ...schema[0] })
       this.template.documents.push(...documents)
 
       if (data.fields) {
@@ -1883,7 +2667,7 @@ export default {
 
       documentRef.scrollToArea(area)
 
-      this.selectedAreaRef.value = area
+      this.selectedAreasRef.value = [area]
     },
     baseFetch (path, options = {}) {
       return fetch(this.baseUrl + path, {
@@ -1893,6 +2677,194 @@ export default {
           ...this.fetchOptions.headers,
           ...options.headers
         }
+      })
+    },
+    detectFieldsForPage ({ page, attachmentUuid }) {
+      this.isDetectingPageFields = true
+      this.detectingAnalyzingProgress = null
+      this.detectingFieldsAddedCount = null
+
+      let totalFieldsAdded = 0
+      const hadFieldsBeforeDetection = this.template.fields.length > 0
+
+      const calculateIoU = (area1, area2) => {
+        const x1 = Math.max(area1.x, area2.x)
+        const y1 = Math.max(area1.y, area2.y)
+        const x2 = Math.min(area1.x + area1.w, area2.x + area2.w)
+        const y2 = Math.min(area1.y + area1.h, area2.y + area2.h)
+
+        const intersectionArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1)
+        const area1Size = area1.w * area1.h
+        const area2Size = area2.w * area2.h
+        const unionArea = area1Size + area2Size - intersectionArea
+
+        return unionArea > 0 ? intersectionArea / unionArea : 0
+      }
+
+      const hasOverlappingField = (newArea) => {
+        const pageAreas = this.fieldAreasIndex[newArea.attachment_uuid]?.[newArea.page] || []
+
+        return pageAreas.some(({ area: existingArea }) => {
+          return calculateIoU(existingArea, newArea) >= 0.1
+        })
+      }
+
+      const filterNonOverlappingFields = (detectedFields) => {
+        return detectedFields.filter((field) => {
+          return (field.areas || []).every((area) => !hasOverlappingField(area))
+        })
+      }
+
+      this.baseFetch(`/templates/${this.template.id}/detect_fields`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attachment_uuid: attachmentUuid, page })
+      }).then(async (response) => {
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let buffer = ''
+        const fields = []
+
+        while (true) {
+          const { value, done } = await reader.read()
+
+          buffer += decoder.decode(value, { stream: true })
+
+          const lines = buffer.split('\n\n')
+
+          buffer = lines.pop()
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.replace(/^data: /, '')
+              const data = JSON.parse(jsonStr)
+
+              if (data.error) {
+                const errorFields = filterNonOverlappingFields(data.fields || fields)
+
+                if (errorFields.length) {
+                  errorFields.forEach((f) => {
+                    if (!f.submitter_uuid) {
+                      f.submitter_uuid = this.template.submitters[0].uuid
+                    }
+                    this.insertField(f)
+                  })
+
+                  totalFieldsAdded += errorFields.length
+
+                  this.save()
+                } else if (!(data.fields || fields).length) {
+                  alert(data.error)
+                }
+
+                break
+              } else if (data.analyzing) {
+                this.detectingAnalyzingProgress = data.progress
+              } else if (data.completed) {
+                if (data.submitters) {
+                  if (!hadFieldsBeforeDetection) {
+                    this.template.submitters = data.submitters
+                    this.selectedSubmitter = this.template.submitters[0]
+
+                    const finalFields = data.fields || fields
+
+                    finalFields.forEach((f) => {
+                      if (!f.submitter_uuid) {
+                        f.submitter_uuid = this.template.submitters[0].uuid
+                      }
+                    })
+
+                    const nonOverlappingFields = filterNonOverlappingFields(finalFields)
+
+                    nonOverlappingFields.forEach((f) => this.insertField(f))
+                    totalFieldsAdded += nonOverlappingFields.length
+
+                    if (nonOverlappingFields.length) {
+                      this.save()
+                    }
+                  } else {
+                    const existingSubmitters = this.template.submitters
+                    const submitterUuidMap = {}
+
+                    data.submitters.forEach((newSubmitter) => {
+                      const existingMatch = existingSubmitters.find(
+                        (s) => s.name.toLowerCase() === newSubmitter.name.toLowerCase()
+                      )
+
+                      if (existingMatch) {
+                        submitterUuidMap[newSubmitter.uuid] = existingMatch.uuid
+                      } else {
+                        submitterUuidMap[newSubmitter.uuid] = newSubmitter.uuid
+
+                        if (!existingSubmitters.find((s) => s.uuid === newSubmitter.uuid)) {
+                          this.template.submitters.push(newSubmitter)
+                        }
+                      }
+                    })
+
+                    const finalFields = data.fields || fields
+
+                    finalFields.forEach((f) => {
+                      if (f.submitter_uuid && submitterUuidMap[f.submitter_uuid]) {
+                        f.submitter_uuid = submitterUuidMap[f.submitter_uuid]
+                      } else if (!f.submitter_uuid) {
+                        f.submitter_uuid = this.template.submitters[0].uuid
+                      }
+                    })
+
+                    const nonOverlappingFields = filterNonOverlappingFields(finalFields)
+
+                    nonOverlappingFields.forEach((f) => this.insertField(f))
+                    totalFieldsAdded += nonOverlappingFields.length
+
+                    if (nonOverlappingFields.length) {
+                      this.save()
+                    }
+                  }
+                } else {
+                  const finalFields = data.fields || fields
+
+                  finalFields.forEach((f) => {
+                    if (!f.submitter_uuid) {
+                      f.submitter_uuid = this.template.submitters[0].uuid
+                    }
+                  })
+
+                  const nonOverlappingFields = filterNonOverlappingFields(finalFields)
+
+                  nonOverlappingFields.forEach((f) => this.insertField(f))
+                  totalFieldsAdded += nonOverlappingFields.length
+
+                  if (nonOverlappingFields.length) {
+                    this.save()
+                  }
+                }
+
+                break
+              } else if (data.fields) {
+                data.fields.forEach((f) => {
+                  if (!f.submitter_uuid) {
+                    f.submitter_uuid = this.template.submitters[0].uuid
+                  }
+                })
+
+                fields.push(...data.fields)
+              }
+            }
+          }
+
+          if (done) break
+        }
+      }).catch(error => {
+        console.error('Error in streaming message: ', error)
+      }).finally(() => {
+        this.isDetectingPageFields = false
+        this.detectingAnalyzingProgress = null
+        this.detectingFieldsAddedCount = totalFieldsAdded
+
+        setTimeout(() => {
+          this.detectingFieldsAddedCount = null
+        }, 1000)
       })
     },
     save ({ force } = { force: false }) {

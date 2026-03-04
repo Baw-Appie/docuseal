@@ -63,6 +63,8 @@ class Submission < ApplicationRecord
 
   has_one_attached :audit_trail
   has_one_attached :combined_document
+  has_one_attached :merged_document
+  has_one_attached :preview_merged_document
 
   has_many_attached :preview_documents
   has_many_attached :documents
@@ -76,8 +78,9 @@ class Submission < ApplicationRecord
   scope :active, -> { where(archived_at: nil) }
   scope :archived, -> { where.not(archived_at: nil) }
   scope :pending, lambda {
-    where(Submitter.where(Submitter.arel_table[:submission_id].eq(Submission.arel_table[:id])
-     .and(Submitter.arel_table[:completed_at].eq(nil))).select(1).arel.exists)
+    where(expire_at: nil).or(where(expire_at: Time.current..))
+                         .where(Submitter.where(Submitter.arel_table[:submission_id].eq(Submission.arel_table[:id])
+                                         .and(Submitter.arel_table[:completed_at].eq(nil))).select(1).arel.exists)
   }
   scope :completed, lambda {
     where.not(Submitter.where(Submitter.arel_table[:submission_id].eq(Submission.arel_table[:id])

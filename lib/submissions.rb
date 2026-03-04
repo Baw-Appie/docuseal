@@ -18,7 +18,8 @@ module Submissions
   def plain_search(submissions, keyword, search_values: false, search_template: false)
     return submissions if keyword.blank?
 
-    term = "%#{keyword.downcase}%"
+    sanitized = ActiveRecord::Base.sanitize_sql_like(keyword.downcase)
+    term = "%#{sanitized}%"
 
     arel_table = Submitter.arel_table
 
@@ -31,7 +32,7 @@ module Submissions
     if search_template
       submissions = submissions.left_joins(:template)
 
-      arel = arel.or(Template.arel_table[:name].lower.matches("%#{keyword.downcase}%"))
+      arel = arel.or(Template.arel_table[:name].lower.matches("%#{sanitized}%"))
     end
 
     submissions.joins(:submitters).where(arel).group(:id)
@@ -133,9 +134,9 @@ module Submissions
   end
 
   def create_from_submitters(template:, user:, submissions_attrs:, source:, with_template: true,
-                             submitters_order: DEFAULT_SUBMITTERS_ORDER, params: {})
+                             submitters_order: DEFAULT_SUBMITTERS_ORDER, params: {}, new_fields: nil)
     Submissions::CreateFromSubmitters.call(
-      template:, user:, submissions_attrs:, source:, submitters_order:, params:, with_template:
+      template:, user:, submissions_attrs:, source:, submitters_order:, params:, with_template:, new_fields:
     )
   end
 

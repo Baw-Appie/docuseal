@@ -14,13 +14,8 @@ Rails.application.routes.draw do
   get 'up' => 'rails/health#show'
   get 'manifest' => 'pwa#manifest'
 
-  devise_for :users,
-             path: '/', only: %i[sessions passwords omniauth_callbacks],
-             controllers: begin
-               options = { sessions: 'sessions', passwords: 'passwords' }
-               options[:omniauth_callbacks] = 'omniauth_callbacks' if User.devise_modules.include?(:omniauthable)
-               options
-             end
+  devise_for :users, path: '/', only: %i[sessions passwords],
+                     controllers: { sessions: 'sessions', passwords: 'passwords' }
 
   devise_scope :user do
     resource :invitation, only: %i[update] do
@@ -58,9 +53,10 @@ Rails.application.routes.draw do
   resources :verify_pdf_signature, only: %i[create]
   resource :mfa_setup, only: %i[show new edit create destroy], controller: 'mfa_setup'
   resources :account_configs, only: %i[create destroy]
+  resources :account_custom_fields, only: %i[create]
   resources :user_configs, only: %i[create]
   resources :encrypted_user_configs, only: %i[destroy]
-  resources :timestamp_server, only: %i[create]
+  resources :timestamp_server, only: %i[create] unless Docuseal.multitenant?
   resources :dashboard, only: %i[index]
   resources :setup, only: %i[index create]
   resource :newsletter, only: %i[show update]
@@ -97,9 +93,11 @@ Rails.application.routes.draw do
   resources :templates, only: %i[index], controller: 'templates_dashboard'
   resources :submissions_filters, only: %i[show], param: 'name'
   resources :templates, only: %i[new create edit update show destroy] do
+    resources :clone, only: %i[new create], controller: 'templates_clone'
     resource :debug, only: %i[show], controller: 'templates_debug' if Rails.env.development?
-    resources :documents, only: %i[create], controller: 'template_documents'
+    resources :documents, only: %i[index create], controller: 'template_documents'
     resources :clone_and_replace, only: %i[create], controller: 'templates_clone_and_replace'
+    resources :detect_fields, only: %i[create], controller: 'templates_detect_fields' unless Docuseal.multitenant?
     resources :restore, only: %i[create], controller: 'templates_restore'
     resources :archived, only: %i[index], controller: 'templates_archived_submissions'
     resources :submissions, only: %i[new create]
@@ -107,7 +105,7 @@ Rails.application.routes.draw do
     resource :preview, only: %i[show], controller: 'templates_preview'
     resource :form, only: %i[show], controller: 'templates_form_preview'
     resource :code_modal, only: %i[show], controller: 'templates_code_modal'
-    resource :preferences, only: %i[show create], controller: 'templates_preferences'
+    resource :preferences, only: %i[show create destroy], controller: 'templates_preferences'
     resource :share_link, only: %i[show create], controller: 'templates_share_link'
     resources :recipients, only: %i[create], controller: 'templates_recipients'
     resources :prefillable_fields, only: %i[create], controller: 'templates_prefillable_fields'
@@ -136,6 +134,7 @@ Rails.application.routes.draw do
   end
 
   resource :resubmit_form, controller: 'start_form', only: :update
+  resource :submit_form_email_2fa, only: %i[create update]
   resources :start_form_email_2fa_send, only: :create
 
   resources :submit_form, only: %i[], path: '' do

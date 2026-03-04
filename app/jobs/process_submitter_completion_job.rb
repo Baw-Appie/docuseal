@@ -39,18 +39,26 @@ class ProcessSubmitterCompletionJob
     submission = submitter.submission
 
     complete_verification_events, sms_events =
-      submitter.submission_events.where(event_type: %i[send_sms send_2fa_sms complete_verification])
-               .partition { |e| e.event_type == 'complete_verification' }
+      submitter.submission_events.where(event_type: %i[send_sms send_2fa_sms complete_verification complete_kba])
+               .partition { |e| e.event_type == 'complete_verification' || e.event_type == 'complete_kba' }
 
     complete_verification_event = complete_verification_events.first
+
+    verification_method =
+      if complete_verification_event&.event_type == 'complete_kba'
+        'kba'
+      elsif complete_verification_event
+        complete_verification_event.data['method']
+      end
 
     completed_submitter.assign_attributes(
       submission_id: submitter.submission_id,
       account_id: submission.account_id,
+      is_first: !CompletedSubmitter.exists?(submission: submitter.submission_id, is_first: true),
       template_id: submission.template_id,
       source: submission.source,
       sms_count: sms_events.sum { |e| e.data['segments'] || 1 },
-      verification_method: complete_verification_event&.data&.dig('method'),
+      verification_method:,
       completed_at: submitter.completed_at
     )
 
@@ -93,18 +101,26 @@ class ProcessSubmitterCompletionJob
 
   def enqueue_completed_emails(submitter)
     submission = submitter.submission
+    template = submitter.template
 
-    user = submission.created_by_user || submitter.template.author
+    user = submission.created_by_user || template.author
 
     if submitter.account.users.exists?(id: user.id) && submission.preferences['send_email'] != false &&
-       submitter.template&.preferences&.dig('completed_notification_email_enabled') != false
-      if submission.submitters.map(&:email).exclude?(user.email) &&
-         user.user_configs.find_by(key: UserConfig::RECEIVE_COMPLETED_EMAIL)&.value != false &&
-         user.role != 'integration'
-        SubmitterMailer.completed_email(submitter, user).deliver_later!
-      end
+       (!template || template.preferences['completed_notification_email_enabled'] != false)
+      user_submitter = submission.submitters.find { |s| s.email == user.email }
+
+      is_sent_to_user =
+        if user.role != 'integration' &&
+           (!user_submitter || user_submitter.preferences['send_email'] == false) &&
+           user.user_configs.find_by(key: UserConfig::RECEIVE_COMPLETED_EMAIL)&.value != false
+          SubmitterMailer.completed_email(submitter, user).deliver_later!
+
+          true
+        end
 
       build_bcc_addresses(submission).each do |to|
+        next if is_sent_to_user && to == user.email
+
         SubmitterMailer.completed_email(submitter, user, to:).deliver_later!
       end
     end
@@ -148,11 +164,13 @@ class ProcessSubmitterCompletionJob
     next_submitter_items =
       if submission.template_submitters.any? { |s| s['order'] }
         submitter_groups =
-          submission.template_submitters.group_by.with_index { |s, index| s['order'] || index }
+          submission.template_submitters
+                    .group_by.with_index { |s, index| s['order'] || index }
+                    .sort_by(&:first).pluck(1)
 
-        current_group_index = submitter_groups.find { |_, group| group.any? { |s| s['uuid'] == submitter.uuid } }&.first
+        current_group_index = submitter_groups.index { |group| group.any? { |s| s['uuid'] == submitter.uuid } }
 
-        if submitter_groups[current_group_index + 1] &&
+        if current_group_index && submitter_groups[current_group_index + 1] &&
            submitters_index.values_at(*submitter_groups[current_group_index].pluck('uuid'))
                            .compact.all?(&:completed_at?)
           submitter_groups[current_group_index + 1]

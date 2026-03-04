@@ -140,11 +140,13 @@ module Submissions
       configs = submitter.account.account_configs.where(key: [AccountConfig::FLATTEN_RESULT_PDF_KEY,
                                                               AccountConfig::WITH_SIGNATURE_ID,
                                                               AccountConfig::WITH_FILE_LINKS_KEY,
+                                                              AccountConfig::WITH_TIMESTAMP_SECONDS_KEY,
                                                               AccountConfig::WITH_SUBMITTER_TIMEZONE_KEY,
                                                               AccountConfig::WITH_SIGNATURE_ID_REASON_KEY])
 
       with_signature_id = configs.find { |c| c.key == AccountConfig::WITH_SIGNATURE_ID }&.value == true
       is_flatten = configs.find { |c| c.key == AccountConfig::FLATTEN_RESULT_PDF_KEY }&.value != false
+      with_timestamp_seconds = configs.find { |c| c.key == AccountConfig::WITH_TIMESTAMP_SECONDS_KEY }&.value == true
       with_submitter_timezone = configs.find { |c| c.key == AccountConfig::WITH_SUBMITTER_TIMEZONE_KEY }&.value == true
       with_file_links = configs.find { |c| c.key == AccountConfig::WITH_FILE_LINKS_KEY }&.value == true
       with_signature_id_reason =
@@ -162,7 +164,7 @@ module Submissions
 
           pdf.trailer.info[:DocumentID] = document_id
           pdf.pages.each do |page|
-            font_size = (([page.box.width, page.box.height].min / A4_SIZE[0].to_f) * 9).to_i
+            font_size = [(([page.box.width, page.box.height].min / A4_SIZE[0].to_f) * 9).to_i, 4].max
             cnv = page.canvas(type: :overlay)
 
             text =
@@ -195,26 +197,31 @@ module Submissions
       fill_submitter_fields(submitter, submitter.account, pdfs_index, with_signature_id:, is_flatten:,
                                                                       with_submitter_timezone:,
                                                                       with_file_links:,
+                                                                      with_timestamp_seconds:,
                                                                       with_signature_id_reason:)
     end
 
     def fill_submitter_fields(submitter, account, pdfs_index, with_signature_id:, is_flatten:, with_headings: nil,
-                              with_submitter_timezone: false, with_signature_id_reason: true, with_file_links: nil)
-      cell_layouter = HexaPDF::Layout::TextLayouter.new(text_valign: :center, text_align: :center)
+                              with_submitter_timezone: false, with_signature_id_reason: true,
+                              with_timestamp_seconds: false, with_file_links: nil)
+      cell_layouters = Hash.new do |hash, valign|
+        hash[valign] = HexaPDF::Layout::TextLayouter.new(text_valign: valign.to_sym, text_align: :center)
+      end
 
       attachments_data_cache = {}
 
       submission = submitter.submission
 
-      return pdfs_index if submission.template_fields.blank?
-
       with_headings = find_last_submitter(submission, submitter:).blank? if with_headings.nil?
 
       locale = submitter.metadata.fetch('lang', account.locale)
 
-      submission.template_fields.each do |field|
-        next if field['type'] == 'heading' && !with_headings
-        next if field['submitter_uuid'] != submitter.uuid && field['type'] != 'heading'
+      (submission.template_fields || submission.template.fields).each do |field|
+        next if !with_headings &&
+                (field['type'] == 'heading' || (field['type'] == 'strikethrough' && field['conditions'].blank?))
+
+        next if field['submitter_uuid'] != submitter.uuid && field['type'] != 'heading' &&
+                (field['type'] != 'strikethrough' || field['conditions'].present?)
 
         field.fetch('areas', []).each do |area|
           pdf = pdfs_index[area['attachment_uuid']]
@@ -237,12 +244,13 @@ module Submissions
           width = page.box.width
           height = page.box.height
 
-          preferences_font_size = field.dig('preferences', 'font_size').then { |num| num.present? ? num.to_i : nil }
+          preferences_font_size = field.dig('preferences', 'font_size').then { |num| num.presence&.to_i }
 
           font_size   = preferences_font_size
           font_size ||= (([page.box.width, page.box.height].min / A4_SIZE[0].to_f) * FONT_SIZE).to_i
 
           fill_color = field.dig('preferences', 'color').to_s.delete_prefix('#').presence
+          bg_color = field.dig('preferences', 'background').to_s.delete_prefix('#').presence
 
           font_name = field.dig('preferences', 'font')
           font_variant = (field.dig('preferences', 'font_type').presence || 'none').to_sym
@@ -258,6 +266,7 @@ module Submissions
 
           value = submitter.values[field['uuid']]
           value = field['default_value'] if field['type'] == 'heading'
+          value = field['default_value'] if field['type'] == 'strikethrough' && value.nil? && field['conditions'].blank?
 
           text_align = field.dig('preferences', 'align').to_s.to_sym.presence ||
                        (value.to_s.match?(RTL_REGEXP) ? :right : :left)
@@ -287,6 +296,13 @@ module Submissions
             with_signature_id = field['preferences']['with_signature_id']
           end
 
+          if bg_color.present?
+            canvas.fill_color(bg_color)
+                  .rectangle(area['x'] * width, height - (area['y'] * height) - (area['h'] * height),
+                             area['w'] * width, area['h'] * height)
+                  .fill
+          end
+
           case field_type
           when ->(type) { type == 'signature' && (with_signature_id || field.dig('preferences', 'reason_field_uuid')) }
             attachment = submitter.attachments.find { |a| a.uuid == value }
@@ -308,27 +324,29 @@ module Submissions
                 timezone = submitter.account.timezone
                 timezone = submitter.timezone || submitter.account.timezone if with_submitter_timezone
 
-                if with_signature_id_reason
-                  "#{reason_value ? "#{I18n.t('reason')}: " : ''}#{reason_value || I18n.t('digitally_signed_by')} " \
-                    "#{submitter.name}#{submitter.email.present? ? " <#{submitter.email}>" : ''}\n" \
-                    "#{I18n.l(attachment.created_at.in_time_zone(timezone), format: :long)} " \
+                time_format = with_timestamp_seconds ? :detailed : :long
+
+                if with_signature_id_reason || field.dig('preferences', 'reasons').present?
+                  "#{"#{I18n.t('reason')}: " if reason_value}#{reason_value || I18n.t('digitally_signed_by')} " \
+                    "#{submitter.name}#{" <#{submitter.email}>" if submitter.email.present?}\n" \
+                    "#{I18n.l(attachment.created_at.in_time_zone(timezone), format: time_format)} " \
                     "#{TimeUtils.timezone_abbr(timezone, attachment.created_at)}"
                 else
-                  "#{I18n.l(attachment.created_at.in_time_zone(timezone), format: :long)} " \
+                  "#{I18n.l(attachment.created_at.in_time_zone(timezone), format: time_format)} " \
                     "#{TimeUtils.timezone_abbr(timezone, attachment.created_at)}"
                 end
               end
 
-            reason_text = HexaPDF::Layout::TextFragment.create(reason_string,
-                                                               font:,
-                                                               font_size: (font_size / 1.8).to_i)
+            base_font_size = (font_size / 1.8).to_i
 
-            if area['h']&.positive? && (area['w'].to_f / area['h']) > 6
-              area_x = area['x'] * width
-              area_y = area['y'] * height
-              area_w = area['w'] * width
-              area_h = area['h'] * height
+            result = nil
 
+            area_x = area['x'] * width
+            area_y = area['y'] * height
+            area_w = area['w'] * width
+            area_h = area['h'] * height
+
+            if area_h.positive? && (area_w.to_f / area_h) > 4.5
               half_width = area_w / 2.0
               scale = [half_width / image.width, area_h / image.height].min
               image_width = image.width * scale
@@ -342,12 +360,10 @@ module Submissions
 
               id_string = "ID: #{attachment.uuid}".upcase
 
-              while true
-                text = HexaPDF::Layout::TextFragment.create(id_string,
-                                                            font:,
-                                                            font_size: (font_size / 1.8).to_i)
+              loop do
+                text = HexaPDF::Layout::TextFragment.create(id_string, font:, font_size: base_font_size)
 
-                result = layouter.fit([text], half_width, (font_size / 1.8) / 0.65)
+                result = layouter.fit([text], half_width, base_font_size / 0.65)
 
                 break if result.status == :success
 
@@ -356,25 +372,39 @@ module Submissions
                 break if id_string.length < 8
               end
 
+              string = [id_string, reason_string].join("\n")
+
+              loop do
+                text = HexaPDF::Layout::TextFragment.create(string, font:, font_size: base_font_size)
+
+                result = layouter.fit([text], half_width, area_h)
+
+                break if result.status == :success
+
+                base_font_size *= 0.9
+
+                break if base_font_size < 2
+              end
+
+              text = HexaPDF::Layout::TextFragment.create(string, font:, font_size: base_font_size)
+
               text_x = area_x + half_width
               text_y = height - area_y
 
-              reason_result = layouter.fit([reason_text], half_width, height)
-
-              layouter.fit([text], half_width, (font_size / 1.8) / 0.65)
-                      .draw(canvas, text_x + TEXT_LEFT_MARGIN, text_y)
-
-              layouter.fit([reason_text], half_width, reason_result.lines.sum(&:height))
-                      .draw(canvas, text_x + TEXT_LEFT_MARGIN, text_y - TEXT_TOP_MARGIN - result.lines.sum(&:height))
+              layouter.fit([text], half_width, area_h).draw(canvas, text_x + TEXT_LEFT_MARGIN, text_y)
             else
+              reason_text = HexaPDF::Layout::TextFragment.create(reason_string,
+                                                                 font:,
+                                                                 font_size: base_font_size)
+
               id_string = "ID: #{attachment.uuid}".upcase
 
               loop do
                 text = HexaPDF::Layout::TextFragment.create(id_string,
                                                             font:,
-                                                            font_size: (font_size / 1.8).to_i)
+                                                            font_size: base_font_size)
 
-                result = layouter.fit([text], area['w'] * width, (font_size / 1.8) / 0.65)
+                result = layouter.fit([text], area_w, base_font_size / 0.65)
 
                 break if result.status == :success
 
@@ -383,36 +413,36 @@ module Submissions
                 break if id_string.length < 8
               end
 
-              reason_result = layouter.fit([reason_text], area['w'] * width, height)
+              reason_result = layouter.fit([reason_text], area_w, height)
               text_height = result.lines.sum(&:height) + reason_result.lines.sum(&:height)
 
-              image_height = (area['h'] * height) - text_height
-              image_height = (area['h'] * height) / 2 if image_height < (area['h'] * height) / 2
+              image_height = area_h - text_height
+              image_height = area_h / 2 if image_height < area_h / 2
 
-              scale = [(area['w'] * width) / image.width, image_height / image.height].min
+              scale = [area_w / image.width, image_height / image.height].min
 
               io = StringIO.new(image.resize([scale * 4, 1].select(&:positive?).min).write_to_buffer('.png'))
 
-              layouter.fit([text], area['w'] * width, (font_size / 1.8) / 0.65)
-                      .draw(canvas, (area['x'] * width) + TEXT_LEFT_MARGIN,
-                            height - (area['y'] * height) - TEXT_TOP_MARGIN - image_height)
+              layouter.fit([text], area_w, base_font_size / 0.65)
+                      .draw(canvas, area_x + TEXT_LEFT_MARGIN,
+                            height - area_y - TEXT_TOP_MARGIN - image_height)
 
-              layouter.fit([reason_text], area['w'] * width, reason_result.lines.sum(&:height))
-                      .draw(canvas, (area['x'] * width) + TEXT_LEFT_MARGIN,
-                            height - (area['y'] * height) - TEXT_TOP_MARGIN -
+              layouter.fit([reason_text], area_w, reason_result.lines.sum(&:height))
+                      .draw(canvas, area_x + TEXT_LEFT_MARGIN,
+                            height - area_y - TEXT_TOP_MARGIN -
                             result.lines.sum(&:height) - image_height)
 
               canvas.image(
                 io,
                 at: [
-                  (area['x'] * width) + (area['w'] * width / 2) - ((image.width * scale) / 2),
-                  height - (area['y'] * height) - (image.height * scale / 2) - (image_height / 2)
+                  area_x + (area_w / 2) - ((image.width * scale) / 2),
+                  height - area_y - (image.height * scale / 2) - (image_height / 2)
                 ],
                 width: image.width * scale,
                 height: image.height * scale
               )
             end
-          when 'image', 'signature', 'initials', 'stamp'
+          when 'image', 'signature', 'initials', 'stamp', 'kba'
             attachment = submitter.attachments.find { |a| a.uuid == value }
 
             image =
@@ -448,8 +478,7 @@ module Submissions
                 cv.image(PdfIcons.paperclip_io, at: [0, 0], width: box.content_width)
               end
 
-              acc << HexaPDF::Layout::TextFragment.create("#{attachment.filename}\n", font:,
-                                                                                      font_size:)
+              acc << HexaPDF::Layout::TextFragment.create("#{attachment.filename}\n", font:, font_size:)
             end
 
             lines = layouter.fit(items, area['w'] * width, height).lines
@@ -501,10 +530,17 @@ module Submissions
             if field['type'].in?(%w[multiple radio])
               option = field['options']&.find { |o| o['uuid'] == area['option_uuid'] }
 
-              option_name = option['value'].presence
-              option_name ||= "#{I18n.t('option', locale: locale)} #{field['options'].index(option) + 1}"
+              value =
+                if option
+                  option_name = option['value'].presence
+                  option_name ||= "#{I18n.t('option', locale: locale)} #{field['options'].index(option) + 1}"
 
-              value = Array.wrap(value).include?(option_name)
+                  Array.wrap(value).include?(option_name)
+                else
+                  Rollbar.error("Invalid option: #{field['uuid']}") if defined?(Rollbar)
+
+                  false
+                end
             end
 
             next unless value == true
@@ -522,6 +558,8 @@ module Submissions
             )
           when ->(type) { type == 'cells' && !area['cell_w'].to_f.zero? }
             cell_width = area['cell_w'] * width
+            cell_valign = field.dig('preferences', 'valign').to_s.presence || 'center'
+            cell_layouter = cell_layouters[cell_valign]
 
             if (mask = field.dig('preferences', 'mask').presence)
               value = TextUtils.mask_value(value, mask)
@@ -537,7 +575,11 @@ module Submissions
                                                                 fill_color:,
                                                                 font_size:)
 
-              line_height = layouter.fit([text], cell_width, height).lines.first.height
+              line = layouter.fit([text], width, height).lines.first
+
+              line_height = line.height
+
+              cell_width = [line.width, cell_width].max
 
               if preferences_font_size.blank? && line_height > (area['h'] * height)
                 text = HexaPDF::Layout::TextFragment.create(char,
@@ -567,6 +609,43 @@ module Submissions
               cell_layouter.fit([text], cell_width, [line_height, area['h'] * height].max)
                            .draw(canvas, x, height - (area['y'] * height))
             end
+          when 'strikethrough'
+            scale = 1000.0 / width
+
+            line_width = 6.0 / scale
+            area_height = area['h'] * height
+
+            if area_height * scale < 40.0
+              canvas.tap do |c|
+                c.stroke_color(field.dig('preferences', 'color').presence || 'red')
+                c.line_width(line_width)
+                c.line(width * area['x'],
+                       height - (height * area['y']) - (area_height / 2),
+                       (width * area['x']) + (width * area['w']),
+                       height - (height * area['y']) - (area_height / 2))
+                c.stroke
+              end
+            else
+              canvas.tap do |c|
+                c.stroke_color(field.dig('preferences', 'color').presence || 'red')
+                c.line_width(line_width)
+                c.line((width * area['x']) + (line_width / 2),
+                       height - (height * area['y']) - (line_width / 2),
+                       (width * area['x']) + (width * area['w']) - (line_width / 2),
+                       height - (height * area['y']) - area_height + (line_width / 2))
+                c.stroke
+              end
+
+              canvas.tap do |c|
+                c.stroke_color(field.dig('preferences', 'color').presence || 'red')
+                c.line_width(line_width)
+                c.line((width * area['x']) + (line_width / 2),
+                       height - (height * area['y']) - area_height + (line_width / 2),
+                       (width * area['x']) + (width * area['w']) - (line_width / 2),
+                       height - (height * area['y']) - (line_width / 2))
+                c.stroke
+              end
+            end
           else
             if field['type'] == 'date'
               value = TimeUtils.format_date_string(value, field.dig('preferences', 'format'), locale)
@@ -583,7 +662,7 @@ module Submissions
             text_params = { font:, fill_color:, font_size: }
             text_params[:line_height] = text_params[:font_size] * (FONTS_LINE_HEIGHT[font_name] || 1)
 
-            text = HexaPDF::Layout::TextFragment.create(value, **text_params)
+            text = HexaPDF::Layout::TextFragment.create(value.tr("\u00A0", ' '), **text_params)
 
             lines = layouter.fit([text], area['w'] * width, height).lines
             box_height = lines.sum(&:height)
@@ -661,20 +740,30 @@ module Submissions
 
         begin
           pdf.sign(io, write_options: { validate: false }, **sign_params)
-        rescue HexaPDF::MalformedPDFError, NoMethodError => e
+        rescue HexaPDF::Error, NoMethodError => e
           Rollbar.error(e) if defined?(Rollbar)
 
-          pdf.sign(io, write_options: { validate: false, incremental: false }, **sign_params)
+          begin
+            pdf.sign(io, write_options: { validate: false, incremental: false }, **sign_params)
+          rescue HexaPDF::Error
+            pdf.validate(auto_correct: true)
+            pdf.sign(io, write_options: { validate: false, incremental: false }, **sign_params)
+          end
         end
 
         maybe_enable_ltv(io, sign_params)
       else
         begin
           pdf.write(io, incremental: true, validate: false)
-        rescue HexaPDF::MalformedPDFError, NoMethodError => e
+        rescue HexaPDF::Error, NoMethodError => e
           Rollbar.error(e) if defined?(Rollbar)
 
-          pdf.write(io, incremental: false, validate: false)
+          begin
+            pdf.write(io, incremental: false, validate: false)
+          rescue HexaPDF::Error
+            pdf.validate(auto_correct: true)
+            pdf.write(io, incremental: false, validate: false)
+          end
         end
       end
 
@@ -715,10 +804,10 @@ module Submissions
     def build_pdfs_index(submission, submitter: nil, flatten: true)
       latest_submitter = find_last_submitter(submission, submitter:)
 
-      Submissions::EnsureResultGenerated.call(latest_submitter) if latest_submitter
+      documents   = Submissions::EnsureResultGenerated.call(latest_submitter) if latest_submitter
+      documents ||= submission.schema_documents
 
-      documents   = latest_submitter&.documents&.preload(:blob).to_a.presence
-      documents ||= submission.schema_documents.preload(:blob)
+      ActiveRecord::Associations::Preloader.new(records: documents, associations: [:blob]).call
 
       attachment_uuids = Submissions.filtered_conditions_schema(submission).pluck('attachment_uuid')
       attachments_index = documents.index_by { |a| a.metadata['original_uuid'] || a.uuid }
@@ -795,7 +884,7 @@ module Submissions
     def find_last_submitter(submission, submitter: nil)
       submission.submitters
                 .select(&:completed_at?)
-                .select { |e| submitter.nil? ? true : e.id != submitter.id && e.completed_at <= submitter.completed_at }
+                .select { |e| submitter.nil? || (e.id != submitter.id && e.completed_at <= submitter.completed_at) }
                 .max_by(&:completed_at)
     end
 

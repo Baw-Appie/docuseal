@@ -7,7 +7,8 @@ module Submissions
     module_function
 
     # rubocop:disable Metrics
-    def call(template:, user:, submissions_attrs:, source:, submitters_order:, params: {}, with_template: true)
+    def call(template:, user:, submissions_attrs:, source:, submitters_order:, params: {}, with_template: true,
+             new_fields: nil)
       preferences = Submitters.normalize_preferences(user.account, user, params)
 
       submissions = Array.wrap(submissions_attrs).filter_map do |attrs|
@@ -55,19 +56,22 @@ module Submissions
             template_submitter = template_submitters.find { |e| e['uuid'] == uuid }
           end
 
-          template_submitter = template_submitter.except('optional_invite_by_uuid', 'invite_by_uuid')
+          template_submitter = template_submitter.except('optional_invite_by_uuid', 'invite_by_uuid',
+                                                         'invite_via_field_uuid')
+
           template_submitter['order'] = submitter_attrs['order'] if submitter_attrs['order'].present?
 
           submission.template_submitters << template_submitter
 
-          is_order_sent = submitters_order == 'random' || (template_submitter['order'] || index).zero?
+          is_order_sent = submitters_order == 'random' ||
+                          (template_submitter['order'] || submitter_attrs[:index] || index).zero?
 
           build_submitter(submission:, attrs: submitter_attrs,
                           uuid:, is_order_sent:, user:, params:,
                           preferences: preferences.merge(submission_preferences))
         end
 
-        maybe_set_template_fields(submission, attrs[:submitters], with_template:)
+        maybe_set_template_fields(submission, attrs[:submitters], with_template:, new_fields:)
 
         if submission.submitters.size > template.submitters.size
           raise BaseError, 'Defined more signing parties than in template'
@@ -81,7 +85,7 @@ module Submissions
 
         next if submission.submitters.blank?
 
-        maybe_add_invite_submitters(submission, template)
+        maybe_add_invite_submitters(submission, template, attrs[:submitters])
 
         submission.template = nil unless with_template
 
@@ -92,7 +96,6 @@ module Submissions
 
       submissions
     end
-    # rubocop:enable Metrics
 
     def maybe_enqueue_expire_at(submissions)
       submissions.each do |submission|
@@ -102,10 +105,23 @@ module Submissions
       end
     end
 
-    def maybe_add_invite_submitters(submission, template)
+    def maybe_add_invite_submitters(submission, template, submitter_attrs)
       template.submitters.each_with_index do |item, index|
-        next if item['invite_by_uuid'].blank? && item['optional_invite_by_uuid'].blank?
+        submitter_attr = submitter_attrs.find { |e| e['role'].to_s.casecmp?(item['name'].to_s) }
+
+        if submitter_attr && submitter_attr['invite_by'].present?
+          invite_by_uuid = template.submitters.find { |s| s['name'] == submitter_attr['invite_by'] }&.dig('uuid')
+
+          item = item.merge('invite_by_uuid' => invite_by_uuid) if invite_by_uuid
+        end
+
+        next if item['invite_by_uuid'].blank? &&
+                item['optional_invite_by_uuid'].blank? &&
+                item['invite_via_field_uuid'].blank?
+
         next if submission.template_submitters.any? { |e| e['uuid'] == item['uuid'] }
+
+        item = item.merge('order' => submitter_attr['order']) if submitter_attr && submitter_attr['order'].present?
 
         if index.zero?
           submission.template_submitters.insert(1, item)
@@ -127,7 +143,8 @@ module Submissions
       }.compact_blank
     end
 
-    def maybe_set_template_fields(submission, submitters_attrs, default_submitter_uuid: nil, with_template: true)
+    def maybe_set_template_fields(submission, submitters_attrs, default_submitter_uuid: nil, with_template: true,
+                                  new_fields: nil)
       template_fields = (submission.template_fields || submission.template.fields).deep_dup
 
       submitters = submission.template_submitters || submission.template.submitters
@@ -141,16 +158,17 @@ module Submissions
         process_fields_param(submitter_attrs[:fields], template_fields, submitter_uuid)
       end
 
-      if template_fields != (submission.template_fields || submission.template.fields) ||
+      if template_fields != (submission.template_fields || submission.template.fields) || new_fields.present? ||
          submitters_attrs.any? { |e| e[:completed].present? } || !with_template || submission.variables.present?
-        submission.template_fields = template_fields
+        submission.template_fields = new_fields ? new_fields + template_fields : template_fields
         submission.template_schema = submission.template.schema if submission.template_schema.blank?
-        submission.variables_schema = submission.template.variables_schema if submission.template_id &&
+        submission.variables_schema = submission.template.variables_schema if submission.template &&
                                                                               submission.variables_schema.blank?
       end
 
       submission
     end
+    # rubocop:enable Metrics
 
     def merge_submitters_and_fields(submitter_attrs, template_submitters, template_fields)
       selected_submitters = submitter_attrs[:roles].map do |role|
@@ -296,7 +314,7 @@ module Submissions
       uuid = attrs[:uuid].presence
       uuid ||= submitters.find { |e| e['name'].to_s.casecmp(attrs[:role].to_s).zero? }&.dig('uuid')
 
-      uuid || submitters[index]&.dig('uuid')
+      uuid || submitters[attrs[:index] || index]&.dig('uuid')
     end
 
     def build_submitter(submission:, attrs:, uuid:, is_order_sent:, user:, preferences:, params:)

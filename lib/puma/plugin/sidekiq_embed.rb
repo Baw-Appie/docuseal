@@ -14,14 +14,14 @@ Puma::Plugin.create do
   end
 
   def start(launcher)
-    launcher.events.on_booted do
+    launcher.events.after_booted do
       next if Puma.stats_hash[:workers].to_i != 0
 
       start_sidekiq!
     end
 
-    launcher.events.on_stopped { Thread.new { @sidekiq&.stop }.join }
-    launcher.events.on_restart { Thread.new { @sidekiq&.stop }.join }
+    launcher.events.after_stopped { Thread.new { @sidekiq&.stop }.join }
+    launcher.events.before_restart { Thread.new { @sidekiq&.stop }.join }
   end
 
   def fire_event(config, event)
@@ -39,6 +39,7 @@ Puma::Plugin.create do
       configs = Sidekiq.configure_embed do |config|
         config.logger.level = Logger::INFO
         sidekiq_config = YAML.load_file('config/sidekiq.yml')
+        sidekiq_config['queues'] << 'fields' if ENV['DEMO'] == 'true'
         config.queues = sidekiq_config['queues']
         config.concurrency = ENV.fetch('SIDEKIQ_THREADS', 5).to_i
         config.merge!(sidekiq_config)

@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute text-center w-full bottom-0 pr-3 mb-4">
+  <div class="absolute w-full bottom-0 pr-3 mb-4">
     <span class="w-full bg-base-200 px-4 py-2 rounded-md inline-flex space-x-2 mx-auto items-center justify-between mb-2 z-20 draw-field-container-mobile">
       <div class="flex items-center space-x-2">
         <component
@@ -77,7 +77,7 @@ export default {
     removeSubmitter (submitter) {
       [...this.fields].forEach((field) => {
         if (field.submitter_uuid === submitter.uuid) {
-          this.removeField(field)
+          this.removeField(field, false)
         }
       })
 
@@ -89,10 +89,12 @@ export default {
 
       this.save()
     },
-    removeField (field) {
+    removeField (field, save = true) {
       this.fields.splice(this.fields.indexOf(field), 1)
 
-      this.save()
+      if (save) {
+        this.save()
+      }
     }
   }
 }

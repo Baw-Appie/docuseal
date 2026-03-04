@@ -30,7 +30,7 @@
         v-for="(icon, type) in fieldIconsSorted"
         :key="type"
       >
-        <li v-if="fieldTypes.includes(type) || ((withPhone || type != 'phone') && (withPayment || type != 'payment') && (withVerification || type != 'verification'))">
+        <li v-if="fieldTypes.includes(type) || ((withPhone || type != 'phone') && (withPayment || type != 'payment') && (withVerification || type != 'verification') && (withKba || type != 'kba'))">
           <a
             href="#"
             class="text-sm py-1 px-2"
@@ -51,11 +51,11 @@
 </template>
 
 <script>
-import { IconTextSize, IconWritingSign, IconCalendarEvent, IconPhoto, IconCheckbox, IconPaperclip, IconSelect, IconCircleDot, IconChecks, IconColumns3, IconPhoneCheck, IconLetterCaseUpper, IconCreditCard, IconRubberStamp, IconSquareNumber1, IconHeading, IconId, IconCalendarCheck } from '@tabler/icons-vue'
+import { IconTextSize, IconWritingSign, IconCalendarEvent, IconPhoto, IconCheckbox, IconPaperclip, IconSelect, IconCircleDot, IconChecks, IconColumns3, IconPhoneCheck, IconLetterCaseUpper, IconCreditCard, IconRubberStamp, IconSquareNumber1, IconHeading, IconId, IconCalendarCheck, IconStrikethrough, IconUserScan } from '@tabler/icons-vue'
 
 export default {
   name: 'FiledTypeDropdown',
-  inject: ['withPhone', 'withPayment', 'withVerification', 't', 'fieldTypes'],
+  inject: ['withPhone', 'withPayment', 'withVerification', 'withKba', 't', 'fieldTypes'],
   props: {
     modelValue: {
       type: String,
@@ -97,6 +97,7 @@ export default {
     fieldNames () {
       return {
         heading: this.t('heading'),
+        strikethrough: this.t('strikeout'),
         text: this.t('text'),
         signature: this.t('signature'),
         initials: this.t('initials'),
@@ -113,7 +114,8 @@ export default {
         stamp: this.t('stamp'),
         payment: this.t('payment'),
         phone: this.t('phone'),
-        verification: this.t('verify_id')
+        verification: this.t('verify_id'),
+        kba: this.t('kba')
       }
     },
     fieldLabels () {
@@ -133,12 +135,14 @@ export default {
         stamp: this.t('stamp_field'),
         payment: this.t('payment_field'),
         phone: this.t('phone_field'),
-        verification: this.t('verify_id')
+        verification: this.t('verify_id'),
+        kba: this.t('kba')
       }
     },
     fieldIcons () {
       return {
         heading: IconHeading,
+        strikethrough: IconStrikethrough,
         text: IconTextSize,
         signature: IconWritingSign,
         initials: IconLetterCaseUpper,
@@ -155,8 +159,12 @@ export default {
         stamp: IconRubberStamp,
         payment: IconCreditCard,
         phone: IconPhoneCheck,
-        verification: IconId
+        verification: IconId,
+        kba: IconUserScan
       }
+    },
+    skipTypes () {
+      return ['heading', 'datenow', 'strikethrough']
     },
     fieldIconsSorted () {
       if (this.fieldTypes.length) {
@@ -166,7 +174,7 @@ export default {
           return acc
         }, {})
       } else {
-        return Object.fromEntries(Object.entries(this.fieldIcons).filter(([key]) => key !== 'heading' && key !== 'datenow'))
+        return Object.fromEntries(Object.entries(this.fieldIcons).filter(([key]) => !this.skipTypes.includes(key)))
       }
     }
   },

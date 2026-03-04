@@ -1,5 +1,5 @@
 <%= form_for '', url: template_submissions_path(template), html: { class: 'space-y-4', autocomplete: 'off' }, data: { turbo_frame: :_top } do |f| %>
-  <% submitters = template.submitters.reject { |e| e['invite_by_uuid'].present? || e['optional_invite_by_uuid'].present? } %>
+  <% submitters = template.submitters.reject { |e| e['invite_by_uuid'].present? || e['optional_invite_by_uuid'].present? || e['invite_via_field_uuid'].present? } %>
   <dynamic-list class="space-y-4">
     <div class="space-y-4">
       <div class="card card-compact bg-base-300/40" data-targets="dynamic-list.items">
@@ -19,11 +19,13 @@
                     </label>
                   <% end %>
                   <input type="hidden" name="submission[1][submitters][][uuid]" value="<%= item['uuid'] %>">
-                  <submitters-autocomplete data-field="phone">
-                    <linked-input data-target-id="<%= "phone_phone_#{item['linked_to_uuid']}" if item['linked_to_uuid'].present? %>">
-                      <%= tag.input type: 'tel', pattern: '^\+[0-9\s\-]+$', oninvalid: "this.value ? this.setCustomValidity('#{t('use_international_format_1xxx_')}') : ''", oninput: "this.setCustomValidity('')", name: 'submission[1][submitters][][phone]', autocomplete: 'off', class: 'base-input !h-10 w-full', placeholder: t('phone'), required: index.zero? || template.preferences['require_all_submitters'], id: "phone_phone_#{item['uuid']}" %>
-                    </linked-input>
-                  </submitters-autocomplete>
+                  <custom-validation data-invalid-message="<%= t('use_international_format_1xxx_') %>">
+                    <submitters-autocomplete data-field="phone">
+                      <linked-input data-target-id="<%= "phone_phone_#{item['linked_to_uuid']}" if item['linked_to_uuid'].present? %>">
+                        <%= tag.input type: 'tel', pattern: '^\+[0-9\s\-]+$', name: 'submission[1][submitters][][phone]', autocomplete: 'off', class: 'base-input !h-10 w-full', placeholder: t('phone'), required: index.zero? || template.preferences['require_all_submitters'], id: "phone_phone_#{item['uuid']}" %>
+                      </linked-input>
+                    </submitters-autocomplete>
+                  </custom-validation>
                   <% if submitters.size > 1 %>
                     <submitters-autocomplete data-field="name">
                       <linked-input data-target-id="<%= "phone_name_#{item['linked_to_uuid']}" if item['linked_to_uuid'].present? %>">
@@ -56,7 +58,8 @@
   </dynamic-list>
   <div>
     <%= render('submitters_order', f:, template:) if Accounts.can_send_emails?(current_account) %>
-    <%= render 'send_sms', f: %>
+    <%= render 'send_sms', f:, checked: true %>
+    <%= render 'extra_phone_fields', f: %>
   </div>
   <div class="form-control">
     <%= f.button button_title(title: t('add_recipients')), class: 'base-button' %>

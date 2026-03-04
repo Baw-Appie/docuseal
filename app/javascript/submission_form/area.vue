@@ -60,6 +60,11 @@
       class="object-contain mx-auto"
       :src="stamp.url"
     >
+    <img
+      v-else-if="field.type === 'kba' && kba"
+      class="object-contain mx-auto"
+      :src="kba.url"
+    >
     <div
       v-else-if="field.type === 'signature' && signature"
       class="flex justify-between h-full gap-1 overflow-hidden w-full"
@@ -177,8 +182,8 @@
     </div>
     <div
       v-else-if="field.type === 'cells'"
-      class="w-full flex items-center"
-      :class="{ 'justify-end': field.preferences?.align === 'right', ...fontClasses }"
+      class="w-full flex"
+      :class="{ 'justify-end': field.preferences?.align === 'right', ...alignClasses, ...fontClasses }"
     >
       <div
         v-for="(char, index) in modelValue"
@@ -220,6 +225,48 @@
         {{ formatNumber(modelValue, field.preferences?.format) }}
       </span>
       <span
+        v-else-if="field.type === 'strikethrough'"
+        class="w-full h-full flex items-center justify-center"
+      >
+        <svg
+          v-if="(((1000.0 / pageWidth) * pageHeight) * area.h) < 40.0"
+          xmlns="http://www.w3.org/2000/svg"
+          width="100%"
+          height="100%"
+        >
+          <line
+            x1="0"
+            y1="50%"
+            x2="100%"
+            y2="50%"
+            :stroke="field.preferences?.color || 'red'"
+            :stroke-width="strikethroughWidth"
+          />
+        </svg>
+        <svg
+          v-else
+          xmlns="http://www.w3.org/2000/svg"
+          :style="{ overflow: 'visible', width: `calc(100% - ${strikethroughWidth})`, height: `calc(100% - ${strikethroughWidth})` }"
+        >
+          <line
+            x1="0"
+            y1="0"
+            x2="100%"
+            y2="100%"
+            :stroke="field.preferences?.color || 'red'"
+            :stroke-width="strikethroughWidth"
+          />
+          <line
+            x1="100%"
+            y1="0"
+            x2="0"
+            y2="100%"
+            :stroke="field.preferences?.color || 'red'"
+            :stroke-width="strikethroughWidth"
+          />
+        </svg>
+      </span>
+      <span
         v-else
         class="whitespace-pre-wrap"
         :class="{ 'w-full': field.preferences?.align }"
@@ -230,7 +277,7 @@
 
 <script>
 import MarkdownContent from './markdown_content'
-import { IconTextSize, IconWritingSign, IconCalendarEvent, IconPhoto, IconCheckbox, IconPaperclip, IconSelect, IconCircleDot, IconChecks, IconCheck, IconColumns3, IconPhoneCheck, IconLetterCaseUpper, IconCreditCard, IconRubberStamp, IconSquareNumber1, IconId } from '@tabler/icons-vue'
+import { IconTextSize, IconWritingSign, IconCalendarEvent, IconPhoto, IconCheckbox, IconPaperclip, IconSelect, IconCircleDot, IconChecks, IconCheck, IconColumns3, IconPhoneCheck, IconLetterCaseUpper, IconCreditCard, IconRubberStamp, IconSquareNumber1, IconId, IconUserScan } from '@tabler/icons-vue'
 
 export default {
   name: 'FieldArea',
@@ -259,6 +306,16 @@ export default {
       type: Boolean,
       required: false,
       default: false
+    },
+    pageWidth: {
+      type: Number,
+      required: false,
+      default: 0
+    },
+    pageHeight: {
+      type: Number,
+      required: false,
+      default: 0
     },
     isValueSet: {
       type: Boolean,
@@ -339,7 +396,15 @@ export default {
         stamp: this.t('stamp'),
         payment: this.t('payment'),
         phone: this.t('phone'),
-        verification: this.t('verify_id')
+        verification: this.t('verify_id'),
+        kba: this.t('kba')
+      }
+    },
+    strikethroughWidth () {
+      if (this.isInlineSize) {
+        return '0.6cqmin'
+      } else {
+        return 'clamp(0px, 0.5vw, 6px)'
       }
     },
     isShowSignatureId () {
@@ -395,7 +460,8 @@ export default {
         multiple: IconChecks,
         phone: IconPhoneCheck,
         payment: IconCreditCard,
-        verification: IconId
+        verification: IconId,
+        kba: IconUserScan
       }
     },
     image () {
@@ -407,6 +473,13 @@ export default {
     },
     stamp () {
       if (this.field.type === 'stamp') {
+        return this.attachmentsIndex[this.modelValue]
+      } else {
+        return null
+      }
+    },
+    kba () {
+      if (this.field.type === 'kba') {
         return this.attachmentsIndex[this.modelValue]
       } else {
         return null
@@ -494,10 +567,14 @@ export default {
         style.color = this.field.preferences.color
       }
 
+      if (this.field.preferences?.background) {
+        style.background = this.field.preferences.background
+      }
+
       return style
     },
     isNarrow () {
-      return this.area.h > 0 && (this.area.w / this.area.h) > 6
+      return this.area.h > 0 && ((this.area.w * this.pageWidth) / (this.area.h * this.pageHeight)) > 4.5
     }
   },
   watch: {

@@ -1,4 +1,4 @@
-require:
+plugins:
   - rubocop-performance
   - rubocop-rails
   - rubocop-rspec
@@ -10,7 +10,7 @@ AllCops:
     - node_modules/**/*
     - bin/*
     - vendor/**/*
-  TargetRubyVersion: '3.3'
+  TargetRubyVersion: '4.0'
   SuggestExtensions: false
 
 Metrics/BlockLength:
@@ -42,6 +42,18 @@ Metrics/CyclomaticComplexity:
 Metrics/PerceivedComplexity:
   Max: 15
 
+Style/MultipleComparison:
+  Enabled: false
+
+Style/NumericPredicate:
+  Enabled: false
+
+Style/MinMaxComparison:
+  Enabled: false
+
+Naming/PredicateMethod:
+  Enabled: false
+
 Layout/LineLength:
   AllowedPatterns: ['\A\s*#']
 
@@ -72,7 +84,7 @@ RSpec/AnyInstance:
   Enabled: false
 
 Metrics/BlockNesting:
-  Max: 5
+  Max: 6
 
 Rails/I18nLocaleTexts:
   Enabled: false
@@ -88,3 +100,16 @@ Rails/ApplicationController:
 
 Rails/Output:
   Enabled: false
+
+Rails/StrongParametersExpect:
+  Enabled: false
+
+Rails/RedirectBackOrTo:
+  Enabled: false
+
+Rails/UnknownEnv:
+  Environments:
+    - development
+    - test
+    - production
+    - local

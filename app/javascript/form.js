@@ -6,6 +6,7 @@ import ToggleSubmit from './elements/toggle_submit'
 import FetchForm from './elements/fetch_form'
 import ScrollButtons from './elements/scroll_buttons'
 import PageContainer from './elements/page_container'
+import SubmitForm from './elements/submit_form'
 
 const safeRegisterElement = (name, element, options = {}) => !window.customElements.get(name) && window.customElements.define(name, element, options)
 
@@ -14,6 +15,7 @@ safeRegisterElement('toggle-submit', ToggleSubmit)
 safeRegisterElement('fetch-form', FetchForm)
 safeRegisterElement('scroll-buttons', ScrollButtons)
 safeRegisterElement('page-container', PageContainer)
+safeRegisterElement('submit-form', SubmitForm)
 safeRegisterElement('submission-form', class extends HTMLElement {
   connectedCallback () {
     this.appElem = document.createElement('div')
@@ -35,6 +37,7 @@ safeRegisterElement('submission-form', class extends HTMLElement {
       withSignatureId: this.dataset.withSignatureId === 'true',
       requireSigningReason: this.dataset.requireSigningReason === 'true',
       withConfetti: this.dataset.withConfetti !== 'false',
+      withFieldLabels: this.dataset.withFieldLabels !== 'false',
       withDisclosure: this.dataset.withDisclosure === 'true',
       reuseSignature: this.dataset.reuseSignature !== 'false',
       withTypedSignature: this.dataset.withTypedSignature !== 'false',
