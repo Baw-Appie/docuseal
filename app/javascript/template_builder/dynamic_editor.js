@@ -19,16 +19,19 @@ export const tiptapStylesheet = new CSSStyleSheet()
 
 tiptapStylesheet.replaceSync(
 `.ProseMirror {
-  position: relative;
-}
-
-.ProseMirror {
   word-wrap: break-word;
   white-space: pre-wrap;
   white-space: break-spaces;
   -webkit-font-variant-ligatures: none;
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0;
+  display: flex;
+  flex-flow: column nowrap;
+  min-height: inherit;
+}
+
+.ProseMirror > article {
+  margin-bottom: auto;
 }
 
 .ProseMirror [contenteditable="false"] {
@@ -91,6 +94,8 @@ img.ProseMirror-separator {
 }
 dynamic-variable {
   background-color: #fef3c7;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }`)
 
 function collectDomAttrs (dom) {
@@ -133,11 +138,12 @@ function collectSpanDomAttrs (dom) {
   return result
 }
 
-function createBlockNode (name, tag, content) {
+function createBlockNode (name, tag, content, extra = {}) {
   return Node.create({
     name,
     group: 'block',
     content: content || 'block+',
+    ...extra,
     addAttributes () {
       return {
         htmlAttrs: { default: {} }
@@ -191,7 +197,9 @@ const CustomHeading = Node.create({
 })
 
 const SectionNode = createBlockNode('section', 'section')
-const ArticleNode = createBlockNode('article', 'article')
+const ArticleNode = createBlockNode('article', 'article', null, { isolating: true })
+const HeaderNode = createBlockNode('header', 'header', null, { isolating: true })
+const FooterNode = createBlockNode('footer', 'footer', null, { isolating: true })
 const DivNode = createBlockNode('div', 'div')
 const BlockquoteNode = createBlockNode('blockquote', 'blockquote')
 const PreNode = createBlockNode('pre', 'pre')
@@ -742,14 +750,12 @@ export function buildEditor ({ dynamicAreaProps, attachmentsIndex, renderHtmlFor
       History,
       Gapcursor,
       Dropcursor,
-      CustomBold,
-      CustomItalic,
-      CustomUnderline,
-      CustomStrike,
       CustomParagraph,
       CustomHeading,
       SectionNode,
       ArticleNode,
+      HeaderNode,
+      FooterNode,
       DivNode,
       BlockquoteNode,
       PreNode,
@@ -768,6 +774,10 @@ export function buildEditor ({ dynamicAreaProps, attachmentsIndex, renderHtmlFor
       EmptySpanNode,
       LinkMark,
       SpanMark,
+      CustomBold,
+      CustomItalic,
+      CustomUnderline,
+      CustomStrike,
       SubscriptMark,
       SuperscriptMark,
       VariableHighlight,

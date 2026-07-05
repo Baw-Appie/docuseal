@@ -31,6 +31,27 @@ module Mcp
                   phone: {
                     type: 'string',
                     description: 'Submitter phone number in E.164 format'
+                  },
+                  role: {
+                    type: 'string',
+                    description: 'Signing role name from the template'
+                  },
+                  fields: {
+                    type: 'array',
+                    description: 'Prefill field values for this submitter (fields become readonly)',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: {
+                          type: 'string',
+                          description: 'Field name'
+                        },
+                        value: {
+                          description: 'Prefilled value for the field'
+                        }
+                      },
+                      required: %w[name value]
+                    }
                   }
                 }
               }
@@ -40,7 +61,7 @@ module Mcp
         },
         annotations: {
           readOnlyHint: false,
-          destructiveHint: false,
+          destructiveHint: true,
           idempotentHint: false,
           openWorldHint: true
         }
@@ -48,28 +69,42 @@ module Mcp
 
       module_function
 
-      # rubocop:disable Metrics/MethodLength
+      # rubocop:disable Metrics
       def call(arguments, current_user, current_ability)
         template = Template.accessible_by(current_ability).find_by(id: arguments['template_id'])
 
-        return { content: [{ type: 'text', text: 'Template not found' }], isError: true } unless template
+        if !template || !current_ability.can?(:read, template)
+          return { content: [{ type: 'text', text: 'Template not found' }], isError: true }
+        end
+
+        if template.archived_at?
+          return { content: [{ type: 'text', text: 'Template has been archived' }], isError: true }
+        end
 
         current_ability.authorize!(:create, Submission.new(template:, account_id: current_user.account_id))
 
         return { content: [{ type: 'text', text: 'Template has no fields' }], isError: true } if template.fields.blank?
 
         submitters = (arguments['submitters'] || []).map do |s|
-          s.slice('email', 'name', 'role', 'phone')
-           .compact_blank
-           .with_indifferent_access
+          attrs = s.slice('email', 'name', 'role', 'phone').compact_blank
+
+          fields = Array.wrap(s['fields']).filter_map do |f|
+            next if f['name'].blank?
+
+            { 'name' => f['name'], 'default_value' => f['value'], 'readonly' => true }
+          end
+
+          attrs['fields'] = fields if fields.present?
+
+          attrs.with_indifferent_access
         end
 
         submissions = Submissions.create_from_submitters(
           template:,
           user: current_user,
-          source: :api,
-          submitters_order: 'random',
-          submissions_attrs: { submitters: submitters },
+          source: :mcp,
+          submitters_order: template.preferences['submitters_order'].presence || 'random',
+          submissions_attrs: { submitters: },
           params: { 'send_email' => true, 'submitters' => submitters }
         )
 
@@ -108,7 +143,7 @@ module Mcp
       rescue Submissions::CreateFromSubmitters::BaseError => e
         { content: [{ type: 'text', text: e.message }], isError: true }
       end
-      # rubocop:enable Metrics/MethodLength
+      # rubocop:enable Metrics
     end
   end
 end

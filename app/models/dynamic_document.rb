@@ -7,8 +7,8 @@
 #  id          :bigint           not null, primary key
 #  body        :text             not null
 #  head        :text
-#  sha1        :text             not null
-#  uuid        :uuid             not null
+#  sha1        :string           not null
+#  uuid        :string           not null
 #  created_at  :datetime         not null
 #  updated_at  :datetime         not null
 #  template_id :bigint           not null
@@ -27,6 +27,12 @@ class DynamicDocument < ApplicationRecord
   has_many_attached :attachments
 
   has_many :versions, class_name: 'DynamicDocumentVersion', dependent: :destroy
+
+  has_one :current_version, class_name: 'DynamicDocumentVersion',
+                            primary_key: %i[id sha1],
+                            foreign_key: %i[dynamic_document_id sha1],
+                            dependent: :destroy,
+                            inverse_of: :dynamic_document
 
   attribute :fields, :json
 

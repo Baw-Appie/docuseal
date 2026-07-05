@@ -56,6 +56,8 @@ module Submissions
             template_submitter = template_submitters.find { |e| e['uuid'] == uuid }
           end
 
+          raise BaseError, 'Invalid submitter params' unless template_submitter
+
           template_submitter = template_submitter.except('optional_invite_by_uuid', 'invite_by_uuid',
                                                          'invite_via_field_uuid')
 
@@ -105,6 +107,8 @@ module Submissions
 
       return submission if template.variables_schema.present? ||
                            submission.variables_schema.present?
+
+      return submission if template.schema.none? { |e| e['dynamic'] }
 
       areas_index = {}
       submission.template_schema = []
@@ -406,9 +410,7 @@ module Submissions
         submitter.values = Submitters::SubmitValues.maybe_remove_condition_values(submitter)
       end
 
-      submitter.values = submitter.values.transform_values do |v|
-        v == '{{date}}' ? Time.current.in_time_zone(submitter.submission.account.timezone).to_date.to_s : v
-      end
+      submitter.values = Submitters::SubmitValues.replace_current_date_placeholders(submitter)
 
       submitter
     end

@@ -19,7 +19,8 @@ class TemplatesController < ApplicationController
                     submissions.order(id: :desc)
                   end
 
-    @pagy, @submissions = pagy_auto(submissions.preload(:template_accesses, submitters: :start_form_submission_events))
+    @pagy, @submissions =
+      pagy_auto(submissions.select_for_list.preload(:template_accesses, submitters: :start_form_submission_events))
   rescue ActiveRecord::RecordNotFound
     redirect_to root_path
   end
@@ -27,18 +28,7 @@ class TemplatesController < ApplicationController
   def new; end
 
   def edit
-    ActiveRecord::Associations::Preloader.new(
-      records: [@template],
-      associations: [schema_documents: [:blob, { preview_images_attachments: :blob }]]
-    ).call
-
-    @template_data =
-      @template.as_json.merge(
-        documents: @template.schema_documents.as_json(
-          methods: %i[metadata signed_key],
-          include: { preview_images: { methods: %i[url metadata filename] } }
-        )
-      ).to_json
+    @template_data = Templates.serialize_for_builder(@template)
 
     render :edit, layout: 'plain'
   end
