@@ -90,6 +90,10 @@ module Submissions
 
         maybe_add_invite_submitters(submission, template, attrs[:submitters])
 
+        maybe_add_cc_submitters(submission, params[:cc_recipients],
+                                submitters_order:, user:, params:,
+                                preferences: preferences.merge(submission_preferences))
+
         assign_submitters_is_viewer(submission)
 
         submission.template = nil unless with_template
@@ -130,13 +134,13 @@ module Submissions
       submission
     end
 
-    def maybe_set_dynamic_documents(submission)
+    def maybe_set_dynamic_documents(submission, preview: false)
       return submission unless submission.template_id?
 
       template = submission.template
 
-      return submission if template.variables_schema.present? ||
-                           submission.variables_schema.present?
+      return submission if !preview && (template.variables_schema.present? ||
+                                        submission.variables_schema.present?)
 
       return submission if template.schema.none? { |e| e['dynamic'] }
 
@@ -208,6 +212,25 @@ module Submissions
         else
           submission.template_submitters << item
         end
+      end
+    end
+
+    def maybe_add_cc_submitters(submission, recipients, submitters_order:, user:, params:, preferences:)
+      order = submission.template_submitters.filter_map { |s| s['order'] }.max
+
+      Array.wrap(recipients).each do |recipient|
+        attrs = recipient.is_a?(String) ? { email: recipient } : recipient.slice(:name, :email, :phone)
+
+        next if attrs.compact_blank.blank?
+
+        uuid = SecureRandom.uuid
+
+        submission.template_submitters <<
+          { 'name' => 'CC', 'uuid' => uuid, 'is_viewer' => true, 'order' => order }.compact
+
+        build_submitter(submission:, attrs:, uuid:, user:, params:,
+                        is_order_sent: submitters_order == 'random',
+                        preferences: preferences.except('email_message_uuid'))
       end
     end
 

@@ -94,7 +94,7 @@ module LoadIco
 
     palette = []
     if dib_bpp <= 8
-      num_palette_entries = dib_clr_used.zero? ? (1 << dib_bpp) : dib_clr_used
+      num_palette_entries = [dib_clr_used.zero? ? (1 << dib_bpp) : dib_clr_used, 1 << dib_bpp].min
       num_palette_entries.times do
         palette_color_bytes = dib_io.read(4)
         return nil unless palette_color_bytes && palette_color_bytes.bytesize == 4
@@ -111,7 +111,7 @@ module LoadIco
     and_scanline_stride = 0
     if has_and_mask
       and_mask_data_offset = xor_mask_data_offset + (image_pixel_height * xor_scanline_stride)
-      and_scanline_stride = (((dib_width * 1) + 31) / 32) * 4
+      and_scanline_stride = ((dib_width + 31) / 32) * 4
     end
 
     flat_rgba_pixels = []
@@ -128,7 +128,7 @@ module LoadIco
       if has_and_mask
         dib_io.seek(and_mask_data_offset + (y_dib_row * and_scanline_stride))
         and_mask_scanline_bytes = dib_io.read(and_scanline_stride)
-        min_and_bytes_needed = ((dib_width * 1) + 7) / 8
+        min_and_bytes_needed = (dib_width + 7) / 8
         return nil unless and_mask_scanline_bytes && and_mask_scanline_bytes.bytesize >= min_and_bytes_needed
 
         (0...dib_width).each do |x_pixel|

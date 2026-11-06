@@ -23,17 +23,20 @@ class AccountsController < ApplicationController
     unless Docuseal.multitenant?
       @encrypted_config = EncryptedConfig.find_or_initialize_by(account: current_account,
                                                                 key: EncryptedConfig::APP_URL_KEY)
-      @encrypted_config.assign_attributes(app_url_params)
 
-      unless URI.parse(@encrypted_config.value.to_s).class.in?([URI::HTTP, URI::HTTPS])
-        @encrypted_config.errors.add(:value, I18n.t('should_be_a_valid_url'))
+      if can?(:manage, @encrypted_config)
+        @encrypted_config.assign_attributes(app_url_params)
 
-        return render :show, status: :unprocessable_content
+        unless URI.parse(@encrypted_config.value.to_s).class.in?([URI::HTTP, URI::HTTPS])
+          @encrypted_config.errors.add(:value, I18n.t('should_be_a_valid_url'))
+
+          return render :show, status: :unprocessable_content
+        end
+
+        @encrypted_config.save!
+
+        Docuseal.refresh_default_url_options!
       end
-
-      @encrypted_config.save!
-
-      Docuseal.refresh_default_url_options!
     end
 
     with_locale do
@@ -47,17 +50,17 @@ class AccountsController < ApplicationController
     authorize!(:manage, current_account)
 
     true_user.skip_reconfirmation!
-    true_user.update!(locked_at: Time.current, email: true_user.email.sub('@', '+removed@'))
+    true_user.update!(locked_at: Time.current, archived_at: Time.current,
+                      email: true_user.email.sub('@', '+removed@'))
     true_user.account.update!(archived_at: Time.current)
 
-    # rubocop:disable Layout/LineLength
+    # rubocop:disable-next Layout/LineLength
     render turbo_stream: turbo_stream.replace(
       :account_delete_button,
       html: helpers.tag.p(I18n.t('your_account_will_be_permanently_deleted_within_2_months_please_contact_us_if_you_want_to_keep_your_account')) +
             helpers.tag.br +
             helpers.tag.p(I18n.t('your_email_address_has_been_released_immediately_you_can_now_be_added_to_your_company_team_without_waiting_for_the_deletion_period_to_end'))
     )
-    # rubocop:enable Layout/LineLength
   end
 
   private

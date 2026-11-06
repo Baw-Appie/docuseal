@@ -2,7 +2,7 @@
 
 require 'puma/plugin'
 
-# rubocop:disable Metrics
+# rubocop:disable-next Metrics
 Puma::Plugin.create do
   def start(launcher)
     return if ENV['LOCAL_REDIS_URL'].to_s.empty?
@@ -54,6 +54,7 @@ Puma::Plugin.create do
       Dir.chdir(ENV.fetch('WORKDIR', nil)) unless ENV['WORKDIR'].to_s.empty?
 
       exec('redis-server', '--requirepass', Digest::SHA1.hexdigest("redis#{ENV.fetch('SECRET_KEY_BASE', '')}"),
+           '--bind', '127.0.0.1', '--port', '16379',
            '--loglevel', 'warning')
     end
   end
@@ -67,4 +68,3 @@ Puma::Plugin.create do
     nil
   end
 end
-# rubocop:enable Metrics

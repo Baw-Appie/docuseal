@@ -30,7 +30,7 @@ module Mcp
       }
     }.freeze
 
-    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+    # rubocop:disable-next Metrics/AbcSize, Metrics/MethodLength
     def call
       account = current_user.account
 
@@ -45,6 +45,8 @@ module Mcp
       )
 
       authorize!(:create, @template)
+
+      Templates.maybe_assign_access(@template)
 
       if mcp_params['url'].present?
         tempfile = Tempfile.new
@@ -85,6 +87,5 @@ module Mcp
         edit_url: edit_template_url(@template)
       )
     end
-    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
   end
 end

@@ -20,7 +20,7 @@ class UsersController < ApplicationController
 
     respond_to do |format|
       format.html do
-        @pagy, @users = pagy(@users)
+        @pagy, @users = pagy(@users, limit: turbo_native_app? ? 1_000 : Pagy::OPTIONS[:limit])
       end
 
       if current_ability.can?(:manage, current_account)
@@ -31,9 +31,13 @@ class UsersController < ApplicationController
     end
   end
 
-  def new; end
+  def new
+    render layout: turbo_native_android? ? 'plain' : true
+  end
 
-  def edit; end
+  def edit
+    render layout: turbo_native_android? ? 'plain' : true
+  end
 
   def create
     existing_user = User.accessible_by(current_ability).find_by(email: @user.email)
@@ -75,6 +79,8 @@ class UsersController < ApplicationController
       authorize!(:manage, account)
 
       @user.account = account
+
+      authorize!(:create, @user)
     end
 
     if @user.update(attrs.except(*(current_user == @user ? %i[password otp_required_for_login role] : %i[password])))

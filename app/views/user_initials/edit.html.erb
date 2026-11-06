@@ -1,18 +1,18 @@
 <%= render 'shared/turbo_modal', title: t('update_initials') do %>
   <% options = [[t('draw'), 'draw'], [t('upload'), 'upload']] %>
-  <toggle-visible data-element-ids="<%= options.map(&:last).to_json %>" class="relative text-center mt-4 block">
+  <toggle-visible data-element-ids="<%= options.map(&:last).to_json %>" class="relative text-center block <%= turbo_native_app? ? ('mt-1.5' if turbo_native_android?) : 'mt-4' %>">
     <div class="join">
       <% options.each_with_index do |(label, value), index| %>
         <span>
           <%= radio_button_tag 'option', value, value == 'draw', class: 'peer hidden', data: { action: 'change:toggle-visible#trigger' } %>
-          <label for="option_<%= value %>" class="<%= '!rounded-s-full' if index.zero? %> btn btn-focus btn-sm join-item md:w-28 peer-checked:btn-active normal-case">
+          <label for="option_<%= value %>" class="<%= '!rounded-s-full' if index.zero? %> btn btn-sm join-item md:w-28 peer-checked:btn-active normal-case">
             <%= label %>
           </label>
         </span>
       <% end %>
     </div>
   </toggle-visible>
-  <div id="draw" class="mt-3">
+  <div id="draw" class="mt-3 <%= 'px-4' if turbo_native_android? %>">
     <%= form_for @user_config, url: user_initials_path, method: :put, data: { turbo_frame: :_top }, html: { autocomplete: :off, enctype: 'multipart/form-data' } do |f| %>
       <signature-form class="relative block">
         <a class="absolute top-1 right-1 link text-sm" data-target="signature-form.clear" href="#"><%= t('clear') %></a>
@@ -24,7 +24,7 @@
       </signature-form>
     <% end %>
   </div>
-  <div id="upload" class="hidden mt-3">
+  <div id="upload" class="hidden mt-3 <%= 'px-4' if turbo_native_android? %>">
     <%= form_for @user_config, url: user_initials_path, method: :put, data: { turbo_frame: :_top }, html: { autocomplete: :off, enctype: 'multipart/form-data' } do |f| %>
       <file-dropzone data-submit-on-upload="true" class="w-full">
         <label for="file" class="w-full block h-32 relative bg-base-200 hover:bg-base-200/70 rounded-md border border-base-content border-dashed">
@@ -40,7 +40,8 @@
                 <%= t('upload_initials') %>
               </div>
               <div class="text-xs">
-                <%= t('click_to_upload_or_drag_and_drop_html') %>
+                <span class="md:hidden"><%= t('click_to_upload') %></span>
+                <span class="hidden md:inline"><%= t('click_to_upload_or_drag_and_drop_html') %></span>
               </div>
             </div>
             <input id="file" name="file" class="hidden" data-action="change:file-dropzone#onSelectFiles" data-target="file-dropzone.input" type="file" accept="image/png,image/jpeg,image/jpg">

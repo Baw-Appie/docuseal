@@ -11,7 +11,7 @@ module Api
     before_action :set_noindex_headers
     before_action :set_security_headers
 
-    # rubocop:disable Metrics
+    # rubocop:disable-next Metrics
     def show
       blob_uuid, purp, exp = ApplicationRecord.signed_id_verifier.verified(params[:signed_uuid])
 
@@ -23,7 +23,7 @@ module Api
 
       blob = ActiveStorage::Blob.find_by!(uuid: blob_uuid)
 
-      if Submitters::DANGEROUS_EXTENSIONS.include?(blob.filename.extension.to_s.downcase)
+      if FilenameUtils.dangerous_extension(blob.filename)
         Rollbar.error('Dangerous extension') if defined?(Rollbar)
 
         return head :unprocessable_content
@@ -53,7 +53,6 @@ module Api
         end
       end
     end
-    # rubocop:enable Metrics
 
     private
 

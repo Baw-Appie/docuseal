@@ -56,7 +56,7 @@
         </span>
       </button>
       <button
-        v-if="!isWebView && withDownloadButton"
+        v-if="(!isWebView || isNativeApp) && withDownloadButton"
         class="base-button flex items-center space-x-1 w-full completed-form-download-button"
         :disabled="isDownloading"
         @click.prevent="download"
@@ -175,6 +175,11 @@ export default {
       type: Object,
       required: false,
       default: () => ({})
+    },
+    nativePlatform: {
+      type: String,
+      required: false,
+      default: ''
     }
   },
   data () {
@@ -184,6 +189,9 @@ export default {
     }
   },
   computed: {
+    isNativeApp () {
+      return !!this.nativePlatform && !!window.webkit?.messageHandlers?.download
+    },
     isWebView () {
       return /webview|wv|ip((?!.*Safari)|(?=.*like Safari))/i.test(window.navigator.userAgent)
     }
@@ -219,7 +227,13 @@ export default {
     download () {
       this.isDownloading = true
 
-      fetch(this.baseUrl + `/submitters/${this.submitterSlug}/download`, {
+      if (this.isNativeApp) {
+        document.addEventListener('native:download-end', () => { this.isDownloading = false }, { once: true })
+
+        return window.webkit.messageHandlers.download.postMessage({ src: this.baseUrl + `/s/${this.submitterSlug}/documents` })
+      }
+
+      fetch(this.baseUrl + `/s/${this.submitterSlug}/documents`, {
         method: 'GET',
         ...this.fetchOptions
       }).then(async (response) => {

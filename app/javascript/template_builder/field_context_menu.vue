@@ -494,6 +494,7 @@ import FieldType from './field_type.vue'
 import FieldSettings from './field_settings.vue'
 import ContextSubmenu from './field_context_submenu.vue'
 import ContextModal from './field_context_modal.vue'
+import { stripeConnectedRef } from './payment_settings'
 
 export default {
   name: 'FieldContextMenu',
@@ -514,7 +515,7 @@ export default {
     ContextSubmenu,
     ContextModal
   },
-  inject: ['t', 'getFieldTypeIndex', 'template', 'withCustomFields', 'currencies', 'dateFormats', 'locale'],
+  inject: ['t', 'getFieldTypeIndex', 'template', 'withCustomFields', 'currencies', 'dateFormats', 'locale', 'withFormula', 'withConditions', 'nativePlatform'],
   props: {
     contextMenu: {
       type: Object,
@@ -607,10 +608,10 @@ export default {
       return !['stamp', 'heading', 'strikethrough'].includes(this.field.type)
     },
     showCondition () {
-      return this.withCondition && !['stamp', 'heading'].includes(this.field.type)
+      return this.withCondition && (this.withConditions || !this.nativePlatform) && !['stamp', 'heading'].includes(this.field.type)
     },
     showFormula () {
-      return this.field.type === 'number' || this.field.type === 'payment'
+      return (this.field.type === 'number' || this.field.type === 'date' || this.field.type === 'payment' || !!this.field.preferences?.formula) && (this.withFormula || !this.nativePlatform)
     },
     showRequired () {
       return this.withRequired && !['phone', 'stamp', 'verification', 'strikethrough', 'heading'].includes(this.field.type)
@@ -716,12 +717,18 @@ export default {
     currentCurrency () {
       return this.field.preferences?.currency || 'USD'
     },
+    isStripeConnected: () => stripeConnectedRef.value,
     priceTypeOptions () {
-      return [
+      const options = [
         { value: 'one_off', label: this.t('fixed') },
-        { value: 'formula', label: this.t('formula') },
-        { value: 'payment_link', label: this.t('payment_link') }
+        { value: 'formula', label: this.t('formula') }
       ]
+
+      if (this.isStripeConnected) {
+        options.push({ value: 'payment_link', label: this.t('payment_link') })
+      }
+
+      return options
     },
     currentPriceType () {
       if (this.field.preferences?.formula) {

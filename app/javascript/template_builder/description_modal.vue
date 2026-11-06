@@ -1,13 +1,17 @@
 <template>
   <div
-    class="modal modal-open items-start !animate-none overflow-y-auto"
+    :class="{ 'modal modal-open items-start !animate-none overflow-y-auto': !inline }"
   >
     <div
+      v-if="!inline"
       class="absolute top-0 bottom-0 right-0 left-0"
       @click.prevent="$emit('close')"
     />
-    <div class="modal-box pt-4 pb-6 px-6 mt-20 max-h-none w-full max-w-xl">
-      <div class="flex justify-between items-center border-b pb-2 mb-2 font-medium">
+    <div :class="inline ? (nativePlatform === 'android' ? 'px-4 pt-1.5 pb-6' : 'px-4 pt-3 pb-6') : 'modal-box pt-4 pb-6 px-6 mt-20 max-h-none w-full max-w-xl'">
+      <div
+        v-if="!inline"
+        class="flex justify-between items-center border-b pb-2 mb-2 font-medium"
+      >
         <span class="modal-title">
           {{ (defaultField ? (defaultField.title || field.title || field.name) : field.name) || buildDefaultName(field) }}
         </span>
@@ -23,7 +27,7 @@
             <div>
               <label
                 dir="auto"
-                class="label text-sm"
+                :class="['label text-sm', { 'pt-0 mt-1': inline && nativePlatform === 'android' }]"
                 for="description_field"
               >
                 {{ t('description') }}
@@ -67,7 +71,7 @@
 <script>
 export default {
   name: 'DescriptionModal',
-  inject: ['t', 'template'],
+  inject: ['t', 'template', 'nativePlatform'],
   props: {
     field: {
       type: Object,
@@ -86,6 +90,11 @@ export default {
     buildDefaultName: {
       type: Function,
       required: true
+    },
+    inline: {
+      type: Boolean,
+      required: false,
+      default: false
     }
   },
   emits: ['close', 'save'],
